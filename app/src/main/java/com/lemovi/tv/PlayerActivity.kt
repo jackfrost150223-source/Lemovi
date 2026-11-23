@@ -186,11 +186,11 @@ class PlayerActivity : Activity() {
     fun handleRemoteCommand(command: String) {
         val exo = player ?: return
         when (command) {
-            "UP" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_UP)
-            "DOWN" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_DOWN)
-            "LEFT" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_LEFT)
-            "RIGHT" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_RIGHT)
-            "OK" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_CENTER)
+            "UP" -> sendPlayerKey(android.view.KeyEvent.KEYCODE_DPAD_UP)
+            "DOWN" -> sendPlayerKey(android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+            "LEFT" -> sendPlayerKey(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+            "RIGHT" -> sendPlayerKey(android.view.KeyEvent.KEYCODE_DPAD_RIGHT)
+            "OK" -> sendPlayerKey(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
             "BACK" -> finish()
             "PLAY_PAUSE" -> if (exo.isPlaying) exo.pause() else exo.play()
             "REWIND" -> exo.seekTo((exo.currentPosition - 10000L).coerceAtLeast(0L))
