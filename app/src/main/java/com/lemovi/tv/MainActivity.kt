@@ -299,7 +299,6 @@ class MainActivity : Activity() {
                     resultMsg.sendToTarget()
                     return true
                 }
-                }
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null) return
                     if (customVideoView != null) {
