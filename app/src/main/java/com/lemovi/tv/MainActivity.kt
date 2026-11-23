@@ -444,7 +444,7 @@ class MainActivity : Activity() {
             let backStack=[];
             let currentScreen='home';
             let lastDetail=null;
-            window.lemoviHandleBack=()=>{const previous=backStack.pop();if(!previous)return false;previous();return true;};
+            window.lemoviHandleBack=()=>{const previous=backStack.pop();if(previous){previous();return true;}if(currentScreen!=='home'){homeCatalog();return true;}return false;};
             function savedItems(){try{return JSON.parse(localStorage.getItem('lemovi_my_list')||'[]');}catch(_){return [];}}
             function saveItems(items){localStorage.setItem('lemovi_my_list',JSON.stringify(items));}
             function toggleSaved(item){const items=savedItems();const index=items.findIndex(x=>x.id===item.id&&x.type===item.type);if(index>=0)items.splice(index,1);else items.push(item);saveItems(items);return index<0;}
@@ -1039,7 +1039,7 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             videoPanel.visibility = View.GONE
         } else if (immersive) {
             toggleImmersive()
-        } else if (::browser.isInitialized && browser.url.orEmpty().startsWith("https://v3-cinemeta.strem.io/")) {
+        } else if (::browser.isInitialized && catalogMode) {
             browser.evaluateJavascript("(window.lemoviHandleBack ? window.lemoviHandleBack() : false)") { handled ->
                 if (handled != "true") {
                     if (browser.canGoBack()) browser.goBack() else super.onBackPressed()
