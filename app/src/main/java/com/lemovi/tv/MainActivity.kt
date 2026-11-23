@@ -26,6 +26,9 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import androidx.webkit.ProfileStore
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -44,6 +47,9 @@ class MainActivity : Activity() {
     private lateinit var browser: WebView
     private lateinit var browserHost: FrameLayout
     private var adPopup: WebView? = null
+    private var isolatedBrowser: WebView? = null
+    private var isolatedBrowserLayout: LinearLayout? = null
+    private var activeIsolatedProfile: String? = null
     private lateinit var address: EditText
     private lateinit var bar: LinearLayout
     private lateinit var addressRow: LinearLayout
@@ -443,33 +449,104 @@ class MainActivity : Activity() {
     }
 
     private fun openBrowserMode() {
-        // La opción Navegador delega la navegación externa al navegador Brave.
-        openInBrave("https://www.google.com/")
+        openIsolatedBrowser("lemovi_browser", "https://www.google.com/", "Navegador Lemovi")
+    }
+
+    private fun safeBrowserProfileName(profileId: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(("lemovi:" + profileId).toByteArray(Charsets.UTF_8))
+        return "lemovi_" + digest.take(12).joinToString("") { "%02x".format(it) }
     }
 
     private fun openInBrave(rawUrl: String) {
+        // Mantiene los enlaces dentro del perfil aislado de Lemovi, no en Brave externo.
+        openIsolatedBrowser("lemovi_browser", rawUrl, "Navegador Lemovi")
+    }
+
+    private fun openIsolatedBrowser(profileId: String, rawUrl: String, title: String) {
         val uri = Uri.parse(rawUrl)
         if (uri.scheme != "https" && uri.scheme != "http") {
-            Toast.makeText(this, "Solo se permiten enlaces web HTTP o HTTPS", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Solo se permiten enlaces HTTP o HTTPS", Toast.LENGTH_LONG).show()
             return
         }
-        val braveIntent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.brave.browser")
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+            Toast.makeText(this, "Este Android System WebView no admite perfiles aislados. Actualizá Android System WebView.", Toast.LENGTH_LONG).show()
+            return
+        }
+        hideIsolatedBrowser()
         try {
-            if (braveIntent.resolveActivity(packageManager) != null) {
-                startActivity(braveIntent)
-                return
+            val profileName = safeBrowserProfileName(profileId)
+            val web = WebView(this)
+            WebViewCompat.setProfile(web, profileName)
+            web.settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                loadsImagesAutomatically = true
+                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                mediaPlaybackRequiresUserGesture = false
+                builtInZoomControls = true
+                displayZoomControls = false
             }
-            val fallbackIntent = Intent(Intent.ACTION_VIEW, uri)
-            if (fallbackIntent.resolveActivity(packageManager) == null) {
-                Toast.makeText(this, "No hay un navegador instalado. Instalá Brave para usar esta opción.", Toast.LENGTH_LONG).show()
-                return
+            web.setBackgroundColor(Color.WHITE)
+            web.webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    val target = request.url
+                    return when (target.scheme?.lowercase()) {
+                        "http", "https" -> false
+                        else -> { try { startActivity(Intent(Intent.ACTION_VIEW, target)) } catch (_: Exception) { }; true }
+                    }
+                }
             }
-            startActivity(Intent.createChooser(fallbackIntent, "Abrir con un navegador"))
-        } catch (_: Exception) {
-            Toast.makeText(this, "No se pudo abrir el navegador. Comprobá que Brave esté instalado.", Toast.LENGTH_LONG).show()
+            web.webChromeClient = WebChromeClient()
+            val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(8, 11, 20)) }
+            val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(8, 8, 8, 8); setBackgroundColor(Color.rgb(20, 13, 35)) }
+            val back = Button(this).apply { text = "‹ Lemovi"; isAllCaps = false; setOnClickListener { hideIsolatedBrowser() } }
+            val urlField = EditText(this).apply { setSingleLine(true); setTextColor(Color.WHITE); setHintTextColor(Color.LTGRAY); hint = "Dirección web"; setText(uri.toString()); imeOptions = EditorInfo.IME_ACTION_GO; setSelectAllOnFocus(true) }
+            val go = Button(this).apply { text = "Ir"; isAllCaps = false; setOnClickListener {
+                val value = urlField.text.toString().trim()
+                val target = if (value.contains("://")) value else "https://" + value
+                val parsed = Uri.parse(target)
+                if (parsed.scheme == "http" || parsed.scheme == "https") web.loadUrl(target) else Toast.makeText(this@MainActivity, "Dirección no válida", Toast.LENGTH_SHORT).show()
+            } }
+            urlField.setOnEditorActionListener { _, actionId, _ -> if (actionId == EditorInfo.IME_ACTION_GO) { go.performClick(); true } else false }
+            toolbar.addView(back, LinearLayout.LayoutParams(-2, -2))
+            toolbar.addView(urlField, LinearLayout.LayoutParams(0, 52, 1f).apply { leftMargin = 8; rightMargin = 8 })
+            toolbar.addView(go, LinearLayout.LayoutParams(-2, -2))
+            panel.addView(toolbar, LinearLayout.LayoutParams(-1, -2))
+            panel.addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
+            browserHost.addView(panel, FrameLayout.LayoutParams(-1, -1))
+            isolatedBrowser = web
+            isolatedBrowserLayout = panel
+            activeIsolatedProfile = profileName
+            web.loadUrl(uri.toString())
+            back.requestFocus()
+        } catch (e: Exception) {
+            hideIsolatedBrowser()
+            Toast.makeText(this, "No se pudo abrir el navegador aislado: " + (e.message ?: "error"), Toast.LENGTH_LONG).show()
         }
     }
 
+    private fun hideIsolatedBrowser() {
+        val web = isolatedBrowser
+        isolatedBrowser = null
+        isolatedBrowserLayout?.let { browserHost.removeView(it) }
+        isolatedBrowserLayout = null
+        activeIsolatedProfile = null
+        if (web != null) try { web.stopLoading(); web.loadUrl("about:blank"); web.removeAllViews(); web.destroy() } catch (_: Exception) { }
+    }
+
+    private fun clearIsolatedBrowserProfile(profileId: String) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return
+        val profileName = safeBrowserProfileName(profileId)
+        if (activeIsolatedProfile == profileName) hideIsolatedBrowser()
+        try {
+            ProfileStore.getInstance().getProfile(profileName)?.let { profile ->
+                profile.cookieManager.removeAllCookies(null)
+                profile.webStorage.deleteAllData()
+            }
+        } catch (_: Exception) { Toast.makeText(this, "No se pudieron borrar todos los datos del navegador.", Toast.LENGTH_LONG).show() }
+    }
     private fun showHomePage() {
         if (!::browser.isInitialized) return
         lemoviCatalogPage = true
@@ -762,6 +839,17 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
         @JavascriptInterface fun openBrowser() {
             if (!trustedPage()) return
             runOnUiThread { openBrowserMode() }
+        }
+
+        @JavascriptInterface fun openIndividualBrowser(profileId: String, url: String, title: String) {
+            if (!trustedPage() || profileId.isBlank()) return
+            try { val safeUrl = validateMediaUrl(url).toString(); runOnUiThread { openIsolatedBrowser(profileId, safeUrl, title) } }
+            catch (e: Exception) { runOnUiThread { Toast.makeText(this@MainActivity, e.message ?: "Dirección no válida", Toast.LENGTH_LONG).show() } }
+        }
+
+        @JavascriptInterface fun clearIndividualBrowser(profileId: String) {
+            if (!trustedPage() || profileId.isBlank()) return
+            runOnUiThread { clearIsolatedBrowserProfile(profileId) }
         }
 
         @JavascriptInterface fun openExternal(raw: String) {
@@ -1124,7 +1212,9 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
     }
 
     override fun onBackPressed() {
-        if (customVideoView != null) {
+        if (isolatedBrowser != null) {
+            if (isolatedBrowser?.canGoBack() == true) isolatedBrowser?.goBack() else hideIsolatedBrowser()
+        } else if (customVideoView != null) {
             hideCustomVideo()
         } else if (videoPanel.visibility == View.VISIBLE) {
             videoPanel.visibility = View.GONE
@@ -1154,6 +1244,7 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
     }
 
     override fun onDestroy() {
+        hideIsolatedBrowser()
         if (::browser.isInitialized) {
             closeAdPopup()
             browser.stopLoading()
