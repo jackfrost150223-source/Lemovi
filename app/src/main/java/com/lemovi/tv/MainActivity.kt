@@ -18,6 +18,7 @@ import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -340,6 +341,7 @@ class MainActivity : Activity() {
                 }
             }
         }
+        browser.addJavascriptInterface(AddonBridge(), "LemoviNative")
         browserHost = FrameLayout(this)
         browserHost.addView(browser, FrameLayout.LayoutParams(-1, -1))
         pageRoot.addView(browserHost, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -388,7 +390,7 @@ class MainActivity : Activity() {
             @media(max-width:560px){.detail{grid-template-columns:1fr}.detail img{max-width:160px}.grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}}
             </style></head><body>
             <header><div class="brand">LEMOVI</div><nav>
-            <button id="homeTab" class="active">INICIO</button><button id="moviesTab">PELÍCULAS</button><button id="seriesTab">SERIES</button>
+            <button id="homeTab" class="active">INICIO</button><button id="moviesTab">PELÍCULAS</button><button id="seriesTab">SERIES</button><button id="addonsTab">COMPLEMENTOS</button>
             </nav><div class="search"><input id="query" placeholder="Buscar películas o series..." aria-label="Buscar películas o series"><button id="searchBtn">BUSCAR</button></div></header>
             <main><div id="hero" class="hero"><h1>Tu cine, a tu manera.</h1><div class="muted">Explorá películas y series, descubrí información y encontrá opciones para verlas.</div></div>
             <div id="content"><div class="status">Cargando catálogo...</div></div></main>
@@ -403,9 +405,11 @@ class MainActivity : Activity() {
             async function homeCatalog(){setTabs('home');content.innerHTML='<div class="status">Cargando películas y series...</div>';try{const results=await Promise.all([fetch(API+'/catalog/movie/top.json').then(r=>r.json()),fetch(API+'/catalog/series/top.json').then(r=>r.json())]);const movies=results[0].metas||[],series=results[1].metas||[];content.innerHTML=(movies.length?'<section class="section"><h2>Películas populares</h2><div class="grid">'+movies.slice(0,20).map(m=>{m.type='movie';return card(m);}).join('')+'</div></section>':'')+(series.length?'<section class="section"><h2>Series populares</h2><div class="grid">'+series.slice(0,20).map(m=>{m.type='series';return card(m);}).join('')+'</div></section>':'');if(!movies.length&&!series.length)content.innerHTML='<div class="status">El catálogo no devolvió títulos.</div>';bindCards();}catch(e){content.innerHTML='<div class="status">No se pudo cargar el catálogo. Revisá tu conexión e intentá nuevamente.</div>';}}
             async function searchAll(term){content.innerHTML='<div class="status">Buscando en películas y series...</div>';try{const results=await Promise.all([fetch(API+'/catalog/movie/top/search='+encodeURIComponent(term)+'.json').then(r=>r.json()),fetch(API+'/catalog/series/top/search='+encodeURIComponent(term)+'.json').then(r=>r.json())]);const movies=results[0].metas||[],series=results[1].metas||[];movies.forEach(m=>m.type='movie');series.forEach(m=>m.type='series');content.innerHTML=(movies.length?'<section class="section"><h2>Películas</h2><div class="grid">'+movies.map(card).join('')+'</div></section>':'')+(series.length?'<section class="section"><h2>Series</h2><div class="grid">'+series.map(card).join('')+'</div></section>':'');if(!movies.length&&!series.length)content.innerHTML='<div class="status">No encontramos resultados para “'+safe(term)+'”.</div>';bindCards();}catch(e){content.innerHTML='<div class="status">No se pudo completar la búsqueda.</div>';}}
             function setTabs(type){document.getElementById('homeTab').classList.toggle('active',type==='home');document.getElementById('moviesTab').classList.toggle('active',type==='movie');document.getElementById('seriesTab').classList.toggle('active',type==='series');}
-            async function details(type,id){content.innerHTML='<div class="status">Cargando ficha...</div>';try{const res=await fetch(API+'/meta/'+type+'/'+encodeURIComponent(id)+'.json');if(!res.ok)throw new Error('No disponible');const data=await res.json(),m=data.meta;if(!m)throw new Error('Sin ficha');let html='<section class="detail"><img src="'+safe(m.poster)+'"><div><h2>'+safe(m.name)+'</h2><p class="muted">'+safe(m.year||'')+' · '+safe(m.genres?m.genres.join(' / '):'')+' · '+(m.imdbRating?'★ '+safe(m.imdbRating):'')+'</p><p>'+safe(m.description||'Sin descripción disponible.')+'</p><button id="whereBtn">DÓNDE VER</button> <button id="backBtn">VOLVER AL CATÁLOGO</button>';if(type==='series'&&m.videos&&m.videos.length){html+='<h3>Temporadas y episodios</h3><div class="episodes">'+m.videos.map(v=>'<button class="episode" data-episode="'+safe(v.id)+'">'+('T'+(v.season||0)+' · E'+(v.episode||0)+' — '+safe(v.title||'Episodio'))+'</button>').join('')+'</div>';}html+='</div></section>';content.innerHTML=html;document.getElementById('backBtn').onclick=()=>catalog(type,'');document.getElementById('whereBtn').onclick=()=>findWhere(m.name);content.querySelectorAll('.episode').forEach(b=>b.onclick=()=>findWhere(m.name+' '+b.textContent));}catch(e){content.innerHTML='<div class="status">No se pudo cargar la ficha. <button id="retry">VOLVER</button></div>';document.getElementById('retry').onclick=()=>catalog(type,'');}}
-            function findWhere(title){const url='https://www.justwatch.com/ar/buscar?q='+encodeURIComponent(title);window.location.href=url;}
-            document.getElementById('homeTab').onclick=()=>homeCatalog();document.getElementById('moviesTab').onclick=()=>catalog('movie','');document.getElementById('seriesTab').onclick=()=>catalog('series','');
+            async function details(type,id){content.innerHTML='<div class="status">Cargando ficha...</div>';try{const res=await fetch(API+'/meta/'+type+'/'+encodeURIComponent(id)+'.json');if(!res.ok)throw new Error('No disponible');const data=await res.json(),m=data.meta;if(!m)throw new Error('Sin ficha');let html='<section class="detail"><img src="'+safe(m.poster)+'"><div><h2>'+safe(m.name)+'</h2><p class="muted">'+safe(m.year||'')+' · '+safe(m.genres?m.genres.join(' / '):'')+' · '+(m.imdbRating?'★ '+safe(m.imdbRating):'')+'</p><p>'+safe(m.description||'Sin descripción disponible.')+'</p><button id="streamsBtn">BUSCAR FUENTES</button> <button id="backBtn">VOLVER AL CATÁLOGO</button>';if(type==='series'&&m.videos&&m.videos.length){html+='<h3>Temporadas y episodios</h3><div class="episodes">'+m.videos.map(v=>'<button class="episode" data-episode="'+safe(v.id)+'">'+('T'+(v.season||0)+' · E'+(v.episode||0)+' — '+safe(v.title||'Episodio'))+'</button>').join('')+'</div>';}html+='</div></section>';content.innerHTML=html;document.getElementById('backBtn').onclick=()=>catalog(type,'');document.getElementById('streamsBtn').onclick=()=>findStreams(type,id);content.querySelectorAll('.episode').forEach(b=>b.onclick=()=>findStreams('series',b.dataset.episode));}catch(e){content.innerHTML='<div class="status">No se pudo cargar la ficha. <button id="retry">VOLVER</button></div>';document.getElementById('retry').onclick=()=>catalog(type,'');}}
+            function addons(){const saved=JSON.parse(LemoviNative.getAddonList()||'[]');content.innerHTML='<section class="section"><h2>Complementos de reproducción</h2><p class="muted">Agregá complementos compatibles con el protocolo Stremio. Lemovi comprobará su manifiesto y consultará fuentes para películas y episodios.</p><div class="search"><input id="addonUrl" placeholder="https://servidor/manifest.json"><button id="addAddonBtn">AGREGAR</button></div><div id="addonStatus" class="status"></div><div id="addonList"></div></section>';renderAddons(saved);document.getElementById('addAddonBtn').onclick=()=>{const u=document.getElementById('addonUrl').value.trim();const status=document.getElementById('addonStatus');status.textContent='Verificando complemento...';try{const result=JSON.parse(LemoviNative.addAddon(u));if(result.error)throw new Error(result.error);status.textContent='Complemento agregado: '+(result.name||result.id);renderAddons(JSON.parse(LemoviNative.getAddonList()||'[]'));document.getElementById('addonUrl').value='';}catch(e){status.textContent='No se pudo agregar: '+e.message;}};}
+function renderAddons(items){const box=document.getElementById('addonList');if(!box)return;box.innerHTML=items.length?items.map((u,i)=>'<div class="hero"><b>Complemento '+(i+1)+'</b><div class="muted">'+safe(u)+'</div><button data-remove="'+i+'">QUITAR</button></div>').join(''):'<p class="muted">Todavía no agregaste complementos.</p>';box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{LemoviNative.removeAddon(items[Number(b.dataset.remove)]);renderAddons(JSON.parse(LemoviNative.getAddonList()||'[]'));});}
+function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonList()||'[]');if(!configured.length){content.innerHTML='<div class="status">Primero agregá un complemento compatible desde COMPLEMENTOS.<br><button id="goAddons">CONFIGURAR COMPLEMENTOS</button></div>';document.getElementById('goAddons').onclick=addons;return;}content.innerHTML='<div class="status">Consultando fuentes de reproducción...</div>';const all=[];for(const url of configured){try{const data=JSON.parse(LemoviNative.getStreams(url,type,id));if(data.error){all.push({name:'Error de complemento',title:data.error,_error:true});continue;}(data.streams||[]).forEach(st=>all.push({...st,_addon:url}));}catch(e){all.push({name:'Error de complemento',title:String(e.message||e),_error:true});}}if(!all.length){content.innerHTML='<div class="status">Los complementos no devolvieron fuentes para este título.</div>';return;}content.innerHTML='<section class="section"><h2>Fuentes disponibles</h2>'+all.map((st,i)=>'<div class="hero"><b>'+safe(st.name||st.title||'Fuente '+(i+1))+'</b><p class="muted">'+safe(st.description||st.behaviorHints?.filename||st._addon||'')+'</p>'+(st._error?'<small>'+safe(st.title)+'</small>':(st.url?'<button data-play="'+i+'">REPRODUCIR</button>':'<span class="muted">Esta fuente no ofrece una URL directa para el reproductor integrado.</span>'))+'</div>').join('')+'</section>';content.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.play)];if(st&&st.url)LemoviNative.playStream(st.url,st.name||'Lemovi');});}
+            document.getElementById('homeTab').onclick=()=>homeCatalog();document.getElementById('moviesTab').onclick=()=>catalog('movie','');document.getElementById('seriesTab').onclick=()=>catalog('series','');document.getElementById('addonsTab').onclick=()=>addons();
             document.getElementById('searchBtn').onclick=()=>{const q=query.value.trim();if(q)searchAll(q);else homeCatalog();};
             query.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('searchBtn').click();});
             homeCatalog();
@@ -416,6 +420,107 @@ class MainActivity : Activity() {
             browser.evaluateJavascript("(function(){var e=document.getElementById('homeTab');if(e)e.focus();})()", null)
             browser.requestFocus()
         }, 350)
+    }
+
+
+    inner class AddonBridge {
+        private fun trustedPage(): Boolean =
+            ::browser.isInitialized && browser.url.orEmpty().startsWith("https://v3-cinemeta.strem.io/")
+
+        private fun validateHttps(raw: String): URL {
+            val url = URL(raw.trim())
+            require(url.protocol.equals("https", true)) { "Solo se permiten direcciones HTTPS." }
+            require(url.host.isNotBlank() && !url.host.contains("@")) { "Dirección no válida." }
+            val host = url.host.lowercase()
+            require(host != "localhost" && !host.endsWith(".local")) { "Host local no permitido." }
+            val address = try { java.net.InetAddress.getByName(host) } catch (_: Exception) { null }
+            if (address != null) require(!address.isAnyLocalAddress && !address.isLoopbackAddress &&
+                !address.isLinkLocalAddress && !address.isSiteLocalAddress) { "Dirección privada no permitida." }
+            return url
+        }
+
+        private fun requestJson(raw: String): JSONObject {
+            val url = validateHttps(raw)
+            val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 10000
+                readTimeout = 15000
+                instanceFollowRedirects = false
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "Lemovi/1.2")
+            }
+            try {
+                val code = connection.responseCode
+                require(code in 200..299) { "El servidor respondió HTTP $code." }
+                val body = connection.inputStream.bufferedReader().use { it.readText() }
+                require(body.length <= 2_000_000) { "Respuesta demasiado grande." }
+                return JSONObject(body)
+            } finally { connection.disconnect() }
+        }
+
+        @JavascriptInterface fun getAddonList(): String {
+            if (!trustedPage()) return "[]"
+            return getPreferences(MODE_PRIVATE).getString("lemovi_addons", "[]") ?: "[]"
+        }
+
+        @JavascriptInterface fun addAddon(raw: String): String {
+            if (!trustedPage()) return JSONObject().put("error", "Pantalla no autorizada").toString()
+            return try {
+                var manifestUrl = raw.trim()
+                require(manifestUrl.isNotBlank()) { "Ingresá la URL del manifiesto." }
+                if (!manifestUrl.endsWith("/manifest.json")) manifestUrl = manifestUrl.trimEnd('/') + "/manifest.json"
+                validateHttps(manifestUrl)
+                val manifest = requestJson(manifestUrl)
+                val resources = manifest.optJSONArray("resources") ?: JSONArray()
+                var hasStreams = false
+                for (i in 0 until resources.length()) {
+                    when (val item = resources.opt(i)) {
+                        is String -> if (item == "stream") hasStreams = true
+                        is JSONObject -> if (item.optString("name") == "stream") hasStreams = true
+                    }
+                }
+                require(hasStreams) { "El complemento no declara el recurso stream." }
+                val list = JSONArray(getPreferences(MODE_PRIVATE).getString("lemovi_addons", "[]"))
+                for (i in 0 until list.length()) require(list.optString(i) != manifestUrl) { "Ese complemento ya está agregado." }
+                list.put(manifestUrl)
+                getPreferences(MODE_PRIVATE).edit().putString("lemovi_addons", list.toString()).apply()
+                manifest.put("manifestUrl", manifestUrl)
+                manifest
+            } catch (e: Exception) { JSONObject().put("error", e.message ?: "No se pudo verificar el complemento.") }.toString()
+        }
+
+        @JavascriptInterface fun removeAddon(raw: String) {
+            if (!trustedPage()) return
+            val old = JSONArray(getPreferences(MODE_PRIVATE).getString("lemovi_addons", "[]"))
+            val next = JSONArray()
+            for (i in 0 until old.length()) if (old.optString(i) != raw) next.put(old.optString(i))
+            getPreferences(MODE_PRIVATE).edit().putString("lemovi_addons", next.toString()).apply()
+        }
+
+        @JavascriptInterface fun getStreams(manifestUrl: String, type: String, id: String): String {
+            if (!trustedPage()) return JSONObject().put("error", "Pantalla no autorizada").toString()
+            return try {
+                require(type == "movie" || type == "series") { "Tipo de contenido no válido." }
+                val saved = JSONArray(getPreferences(MODE_PRIVATE).getString("lemovi_addons", "[]"))
+                var registered = false
+                for (i in 0 until saved.length()) if (saved.optString(i) == manifestUrl) registered = true
+                require(registered) { "Complemento no registrado." }
+                val manifest = validateHttps(manifestUrl)
+                val basePath = manifest.path.substringBeforeLast("/")
+                val endpoint = URL(manifest.protocol, manifest.host, manifest.port,
+                    "$basePath/stream/$type/\${Uri.encode(id)}.json")
+                requestJson(endpoint.toString()).toString()
+            } catch (e: Exception) { JSONObject().put("error", e.message ?: "Error consultando fuentes.").toString() }
+        }
+
+        @JavascriptInterface fun playStream(raw: String, label: String) {
+            if (!trustedPage()) return
+            try {
+                val url = validateHttps(raw)
+                runOnUiThread { openNativePlayer(url.toString()) }
+            } catch (e: Exception) {
+                runOnUiThread { Toast.makeText(this@MainActivity, e.message ?: "Fuente no válida", Toast.LENGTH_LONG).show() }
+            }
+        }
     }
 
     private fun saveBookmark() {
