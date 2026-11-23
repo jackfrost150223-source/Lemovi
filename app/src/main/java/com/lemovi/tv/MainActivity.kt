@@ -594,7 +594,7 @@ class MainActivity : Activity() {
             <button id="archiveTab" class="navBtn" aria-label="Cine de Archivo" title="Cine de Archivo"><span class="navIcon">◷</span><span class="navLabel">CINE DE ARCHIVO</span></button>
             <button id="listTab" class="navBtn" aria-label="Mi lista" title="Mi lista"><span class="navIcon">★</span><span class="navLabel">MI LISTA</span></button>
             <button id="addonsTab" class="navBtn" aria-label="Complementos" title="Complementos"><span class="navIcon">⊞</span><span class="navLabel">COMPLEMENTOS</span></button>
-            <button id="browserTab" class="navBtn" aria-label="Abrir navegador Brave" title="Abrir navegador Brave"><span class="navIcon">◎</span><span class="navLabel">NAVEGADOR BRAVE</span></button>
+            <button id="browserTab" class="navBtn" aria-label="Abrir navegador individual" title="Abrir navegador individual"><span class="navIcon">◎</span><span class="navLabel">NAVEGADOR</span></button>
             </nav><div class="searchDock" id="searchDock"><input id="query" placeholder="Buscar películas o series..." aria-label="Buscar películas o series" tabindex="-1"><button id="searchBtn" aria-label="Abrir búsqueda" title="Buscar">⌕</button></div></header>
             <main><div id="hero" class="hero"><h1>Tu cine, a tu manera.</h1><div class="muted">Explorá películas y series, descubrí información y encontrá opciones para verlas.</div></div>
             <div id="content"><div class="status">Cargando catálogo...</div></div></main>
