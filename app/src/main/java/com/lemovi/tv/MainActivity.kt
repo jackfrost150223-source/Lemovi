@@ -408,7 +408,7 @@ class MainActivity : Activity() {
             async function details(type,id){content.innerHTML='<div class="status">Cargando ficha...</div>';try{const res=await fetch(API+'/meta/'+type+'/'+encodeURIComponent(id)+'.json');if(!res.ok)throw new Error('No disponible');const data=await res.json(),m=data.meta;if(!m)throw new Error('Sin ficha');let html='<section class="detail"><img src="'+safe(m.poster)+'"><div><h2>'+safe(m.name)+'</h2><p class="muted">'+safe(m.year||'')+' · '+safe(m.genres?m.genres.join(' / '):'')+' · '+(m.imdbRating?'★ '+safe(m.imdbRating):'')+'</p><p>'+safe(m.description||'Sin descripción disponible.')+'</p><button id="streamsBtn">BUSCAR FUENTES</button> <button id="backBtn">VOLVER AL CATÁLOGO</button>';if(type==='series'&&m.videos&&m.videos.length){html+='<h3>Temporadas y episodios</h3><div class="episodes">'+m.videos.map(v=>'<button class="episode" data-episode="'+safe(v.id)+'">'+('T'+(v.season||0)+' · E'+(v.episode||0)+' — '+safe(v.title||'Episodio'))+'</button>').join('')+'</div>';}html+='</div></section>';content.innerHTML=html;document.getElementById('backBtn').onclick=()=>catalog(type,'');document.getElementById('streamsBtn').onclick=()=>findStreams(type,id);content.querySelectorAll('.episode').forEach(b=>b.onclick=()=>findStreams('series',b.dataset.episode));}catch(e){content.innerHTML='<div class="status">No se pudo cargar la ficha. <button id="retry">VOLVER</button></div>';document.getElementById('retry').onclick=()=>catalog(type,'');}}
             function addons(){const saved=JSON.parse(LemoviNative.getAddonList()||'[]');content.innerHTML='<section class="section"><h2>Complementos de reproducción</h2><p class="muted">Agregá complementos compatibles con el protocolo Stremio. Lemovi comprobará su manifiesto y consultará fuentes para películas y episodios.</p><div class="search"><input id="addonUrl" placeholder="https://servidor/manifest.json"><button id="addAddonBtn">AGREGAR</button></div><div id="addonStatus" class="status"></div><div id="addonList"></div></section>';renderAddons(saved);document.getElementById('addAddonBtn').onclick=()=>{const u=document.getElementById('addonUrl').value.trim();const status=document.getElementById('addonStatus');status.textContent='Verificando complemento...';try{const result=JSON.parse(LemoviNative.addAddon(u));if(result.error)throw new Error(result.error);status.textContent='Complemento agregado: '+(result.name||result.id);renderAddons(JSON.parse(LemoviNative.getAddonList()||'[]'));document.getElementById('addonUrl').value='';}catch(e){status.textContent='No se pudo agregar: '+e.message;}};}
 function renderAddons(items){const box=document.getElementById('addonList');if(!box)return;box.innerHTML=items.length?items.map((u,i)=>'<div class="hero"><b>Complemento '+(i+1)+'</b><div class="muted">'+safe(u)+'</div><button data-remove="'+i+'">QUITAR</button></div>').join(''):'<p class="muted">Todavía no agregaste complementos.</p>';box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{LemoviNative.removeAddon(items[Number(b.dataset.remove)]);renderAddons(JSON.parse(LemoviNative.getAddonList()||'[]'));});}
-function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonList()||'[]');if(!configured.length){content.innerHTML='<div class="status">Primero agregá un complemento compatible desde COMPLEMENTOS.<br><button id="goAddons">CONFIGURAR COMPLEMENTOS</button></div>';document.getElementById('goAddons').onclick=addons;return;}content.innerHTML='<div class="status">Consultando fuentes de reproducción...</div>';const all=[];for(const url of configured){try{const data=JSON.parse(LemoviNative.getStreams(url,type,id));if(data.error){all.push({name:'Error de complemento',title:data.error,_error:true});continue;}(data.streams||[]).forEach(st=>all.push({...st,_addon:url}));}catch(e){all.push({name:'Error de complemento',title:String(e.message||e),_error:true});}}if(!all.length){content.innerHTML='<div class="status">Los complementos no devolvieron fuentes para este título.</div>';return;}content.innerHTML='<section class="section"><h2>Fuentes disponibles</h2>'+all.map((st,i)=>'<div class="hero"><b>'+safe(st.name||st.title||'Fuente '+(i+1))+'</b><p class="muted">'+safe(st.description||st.behaviorHints?.filename||st._addon||'')+'</p>'+(st._error?'<small>'+safe(st.title)+'</small>':(st.url?'<button data-play="'+i+'">REPRODUCIR</button>':'<span class="muted">Esta fuente no ofrece una URL directa para el reproductor integrado.</span>'))+'</div>').join('')+'</section>';content.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.play)];if(st&&st.url)LemoviNative.playStream(st.url,st.name||'Lemovi');});}
+function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonList()||'[]');if(!configured.length){content.innerHTML='<div class="status">Primero agregá un complemento compatible desde COMPLEMENTOS.<br><button id="goAddons">CONFIGURAR COMPLEMENTOS</button></div>';document.getElementById('goAddons').onclick=addons;return;}content.innerHTML='<div class="status">Consultando fuentes de reproducción...</div>';const all=[];for(const url of configured){try{const data=JSON.parse(LemoviNative.getStreams(url,type,id));if(data.error){all.push({name:'Error de complemento',title:data.error,_error:true});continue;}(data.streams||[]).forEach(st=>all.push({...st,_addon:url}));}catch(e){all.push({name:'Error de complemento',title:String(e.message||e),_error:true});}}if(!all.length){content.innerHTML='<div class="status">Los complementos no devolvieron fuentes para este título.</div>';return;}content.innerHTML='<section class="section"><h2>Fuentes disponibles</h2>'+all.map((st,i)=>'<div class="hero"><b>'+safe(st.name||st.title||'Fuente '+(i+1))+'</b><p class="muted">'+safe(st.description||st.behaviorHints?.filename||st._addon||'')+'</p>'+(st._error?'<small>'+safe(st.title)+'</small>':(st.url?'<button data-play="'+i+'">REPRODUCIR</button>':'<span class="muted">Esta fuente no ofrece una URL directa para el reproductor integrado.</span>'))+'</div>').join('')+'</section>';content.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.play)];if(st&&st.url){const headers=st.behaviorHints&&st.behaviorHints.proxyHeaders&&st.behaviorHints.proxyHeaders.request?JSON.stringify(st.behaviorHints.proxyHeaders.request):'{}';LemoviNative.playStream(st.url,st.name||'Lemovi',st._addon,headers);}});}
             document.getElementById('homeTab').onclick=()=>homeCatalog();document.getElementById('moviesTab').onclick=()=>catalog('movie','');document.getElementById('seriesTab').onclick=()=>catalog('series','');document.getElementById('addonsTab').onclick=()=>addons();
             document.getElementById('searchBtn').onclick=()=>{const q=query.value.trim();if(q)searchAll(q);else homeCatalog();};
             query.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('searchBtn').click();});
@@ -429,7 +429,7 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
 
         private fun validateHttps(raw: String): URL {
             val url = URL(raw.trim())
-            require(url.protocol.equals("https", true)) { "Solo se permiten direcciones HTTPS." }
+            require(url.protocol.equals("https", true)) { "Los complementos deben usar HTTPS." }
             require(url.host.isNotBlank() && !url.host.contains("@")) { "Dirección no válida." }
             val host = url.host.lowercase()
             require(host != "localhost" && !host.endsWith(".local")) { "Host local no permitido." }
@@ -439,22 +439,59 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
             return url
         }
 
-        private fun requestJson(raw: String): JSONObject {
-            val url = validateHttps(raw)
-            val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
-                connectTimeout = 10000
-                readTimeout = 15000
-                instanceFollowRedirects = false
-                setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "Lemovi/1.2")
+        private fun validateMediaUrl(raw: String): URL {
+            val url = URL(raw.trim())
+            require(url.protocol.equals("https", true) || url.protocol.equals("http", true)) {
+                "La fuente debe ser una URL HTTP o HTTPS."
             }
-            try {
-                val code = connection.responseCode
-                require(code in 200..299) { "El servidor respondió HTTP $code." }
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                require(body.length <= 2_000_000) { "Respuesta demasiado grande." }
-                return JSONObject(body)
-            } finally { connection.disconnect() }
+            require(url.host.isNotBlank() && !url.host.contains("@")) { "Fuente no válida." }
+            return url
+        }
+
+        private fun requestJson(raw: String): JSONObject {
+            var current = validateHttps(raw)
+            repeat(5) { hop ->
+                val connection = (current.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 10000
+                    readTimeout = 15000
+                    instanceFollowRedirects = false
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "Lemovi/1.3")
+                }
+                try {
+                    val code = connection.responseCode
+                    if (code in 301..308) {
+                        val location = connection.getHeaderField("Location")
+                            ?: throw IllegalArgumentException("Redirección sin destino.")
+                        require(hop < 4) { "Demasiadas redirecciones." }
+                        current = validateHttps(URL(current, location).toString())
+                    } else {
+                        require(code in 200..299) { "El servidor respondió HTTP $code." }
+                        val body = connection.inputStream.bufferedReader().use { it.readText() }
+                        require(body.length <= 2_000_000) { "Respuesta demasiado grande." }
+                        return JSONObject(body)
+                    }
+                } finally { connection.disconnect() }
+            }
+            throw IllegalArgumentException("No se pudo obtener el manifiesto.")
+        }
+
+        private fun supportsStream(manifest: JSONObject, type: String, id: String): Boolean {
+            val resources = manifest.optJSONArray("resources") ?: return false
+            var streamResource: JSONObject? = null
+            for (i in 0 until resources.length()) {
+                when (val item = resources.opt(i)) {
+                    is String -> if (item == "stream") streamResource = JSONObject().put("name", "stream")
+                    is JSONObject -> if (item.optString("name") == "stream") streamResource = item
+                }
+            }
+            val resource = streamResource ?: return false
+            val types = resource.optJSONArray("types") ?: manifest.optJSONArray("types")
+            if (types != null && (0 until types.length()).none { types.optString(it) == type }) return false
+            val prefixes = resource.optJSONArray("idPrefixes") ?: manifest.optJSONArray("idPrefixes")
+            if (prefixes != null && prefixes.length() > 0 &&
+                (0 until prefixes.length()).none { id.startsWith(prefixes.optString(it)) }) return false
+            return true
         }
 
         @JavascriptInterface fun getAddonList(): String {
@@ -470,15 +507,14 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
                 if (!manifestUrl.endsWith("/manifest.json")) manifestUrl = manifestUrl.trimEnd('/') + "/manifest.json"
                 validateHttps(manifestUrl)
                 val manifest = requestJson(manifestUrl)
-                val resources = manifest.optJSONArray("resources") ?: JSONArray()
-                var hasStreams = false
-                for (i in 0 until resources.length()) {
-                    when (val item = resources.opt(i)) {
-                        is String -> if (item == "stream") hasStreams = true
-                        is JSONObject -> if (item.optString("name") == "stream") hasStreams = true
-                    }
+                require(manifest.optString("id").isNotBlank() && manifest.optString("name").isNotBlank()) {
+                    "El manifiesto no contiene nombre e identificador."
                 }
-                require(hasStreams) { "El complemento no declara el recurso stream." }
+                val resources = manifest.optJSONArray("resources") ?: JSONArray()
+                require((0 until resources.length()).any { resources.opt(it) == "stream" ||
+                    resources.optJSONObject(it)?.optString("name") == "stream" }) {
+                    "El complemento no declara el recurso stream."
+                }
                 val list = JSONArray(getPreferences(MODE_PRIVATE).getString("lemovi_addons", "[]"))
                 for (i in 0 until list.length()) require(list.optString(i) != manifestUrl) { "Ese complemento ya está agregado." }
                 list.put(manifestUrl)
@@ -506,17 +542,22 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
                 require(registered) { "Complemento no registrado." }
                 val manifest = validateHttps(manifestUrl)
                 val basePath = manifest.path.substringBeforeLast("/")
-                val endpoint = URL(manifest.protocol, manifest.host, manifest.port,
-                    "$basePath/stream/$type/\${Uri.encode(id)}.json")
-                requestJson(endpoint.toString()).toString()
+                val encodedId = Uri.encode(id, "-_.!~*'()")
+                val route = "$basePath/stream/$type/$encodedId.json"
+                val endpoint = URL(manifest.protocol, manifest.host, manifest.port, route)
+                val requestUrl = endpoint.toString() + (manifest.query?.let { "?$it" } ?: "")
+                requestJson(requestUrl).toString()
             } catch (e: Exception) { JSONObject().put("error", e.message ?: "Error consultando fuentes.").toString() }
         }
 
-        @JavascriptInterface fun playStream(raw: String, label: String) {
+        @JavascriptInterface fun playStream(raw: String, label: String, addonUrl: String, headersRaw: String) {
             if (!trustedPage()) return
             try {
-                val url = validateHttps(raw)
-                runOnUiThread { openNativePlayer(url.toString()) }
+                val media = validateMediaUrl(raw)
+                val addon = validateHttps(addonUrl)
+                val origin = "\${addon.protocol}://\${addon.host}" + if (addon.port != -1) ":\${addon.port}" else ""
+                val headers = try { JSONObject(headersRaw).toString() } catch (_: Exception) { "{}" }
+                runOnUiThread { openNativePlayer(media.toString(), origin, headers) }
             } catch (e: Exception) {
                 runOnUiThread { Toast.makeText(this@MainActivity, e.message ?: "Fuente no válida", Toast.LENGTH_LONG).show() }
             }
@@ -652,14 +693,15 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
             query.startsWith("video/") || query.contains("mpegurl") || query.contains("dash+xml")
     }
 
-    private fun openNativePlayer(url: String) {
+    private fun openNativePlayer(url: String, refererOverride: String? = null, headersJson: String? = null) {
         val cookie = CookieManager.getInstance().getCookie(url).orEmpty()
-        val referer = browser.url.orEmpty()
+        val referer = refererOverride?.takeIf { it.isNotBlank() } ?: browser.url.orEmpty()
         startActivity(android.content.Intent(this, PlayerActivity::class.java)
             .putExtra(PlayerActivity.EXTRA_URL, url)
             .putExtra(PlayerActivity.EXTRA_USER_AGENT, browser.settings.userAgentString)
             .putExtra(PlayerActivity.EXTRA_COOKIE, cookie)
-            .putExtra(PlayerActivity.EXTRA_REFERER, referer))
+            .putExtra(PlayerActivity.EXTRA_REFERER, referer)
+            .putExtra(PlayerActivity.EXTRA_HEADERS, headersJson.orEmpty()))
     }
 
     // La detección lee solo elementos y recursos expuestos por la página actual.
