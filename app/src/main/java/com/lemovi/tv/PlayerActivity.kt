@@ -27,6 +27,7 @@ class PlayerActivity : Activity() {
         const val EXTRA_REFERER = "lemovi.referer"
         const val EXTRA_HEADERS = "lemovi.headers"
         const val EXTRA_SUBTITLES = "lemovi.subtitles"
+        const val EXTRA_MIME_TYPE = "lemovi.mime_type"
     }
 
     private var player: ExoPlayer? = null
@@ -93,19 +94,19 @@ class PlayerActivity : Activity() {
         val referer = intent.getStringExtra(EXTRA_REFERER).orEmpty()
         val requestHeaders = mutableMapOf<String, String>()
         val addonHeaders = try { org.json.JSONObject(intent.getStringExtra(EXTRA_HEADERS).orEmpty()) } catch (_: Exception) { org.json.JSONObject() }
+        val forbiddenHeaders = setOf(
+            "host", "content-length", "connection", "transfer-encoding", "range",
+            "accept-encoding", "proxy-authorization", "proxy-connection",
+            "keep-alive", "te", "trailer", "upgrade"
+        )
+        val headerNamePattern = Regex("^[A-Za-z0-9!#$%&'*+.^_|~-]{1,128}$")
         addonHeaders.keys().forEach { key ->
-            val normalized = when (key.lowercase()) {
-                "user-agent" -> "User-Agent"
-                "referer" -> "Referer"
-                "origin" -> "Origin"
-                "cookie" -> "Cookie"
-                "authorization" -> "Authorization"
-                "accept" -> "Accept"
-                "accept-language" -> "Accept-Language"
-                else -> ""
-            }
             val value = addonHeaders.optString(key)
-            if (normalized.isNotBlank() && value.isNotBlank() && value.length <= 4096) requestHeaders[normalized] = value
+            if (headerNamePattern.matches(key) && key.lowercase() !in forbiddenHeaders &&
+                value.isNotBlank() && value.length <= 8192 &&
+                !value.contains('\\r') && !value.contains('\\n')) {
+                requestHeaders[key] = value
+            }
         }
         if (userAgent.isNotBlank() && "User-Agent" !in requestHeaders) requestHeaders["User-Agent"] = userAgent
         if (cookie.isNotBlank() && "Cookie" !in requestHeaders) requestHeaders["Cookie"] = cookie
@@ -167,20 +168,49 @@ class PlayerActivity : Activity() {
                         )
                     } catch (_: Exception) { }
                 }
+                val mimeHint = intent.getStringExtra(EXTRA_MIME_TYPE).orEmpty()
+                val resolvedMime = inferMimeType(url, mimeHint)
                 val mediaItem = MediaItem.Builder()
                     .setUri(url)
                     .setSubtitleConfigurations(subtitleConfigurations)
                     .apply {
-                        val lower = url.lowercase()
-                        when {
-                            lower.contains(".m3u8") || lower.contains("mpegurl") -> setMimeType(MimeTypes.APPLICATION_M3U8)
-                            lower.contains(".mpd") || lower.contains("dash+xml") -> setMimeType(MimeTypes.APPLICATION_MPD)
+                        when (resolvedMime) {
+                            MimeTypes.APPLICATION_M3U8 -> setMimeType(MimeTypes.APPLICATION_M3U8)
+                            MimeTypes.APPLICATION_MPD -> setMimeType(MimeTypes.APPLICATION_MPD)
+                            else -> if (!resolvedMime.isNullOrBlank()) setMimeType(resolvedMime)
                         }
                     }.build()
                 exo.setMediaItem(mediaItem)
                 exo.prepare()
                 exo.playWhenReady = true
             }
+    }
+
+    private fun inferMimeType(url: String, hint: String): String? {
+        val supplied = hint.trim().lowercase()
+        if (supplied.contains("/") && !supplied.contains("\\r") && !supplied.contains("\\n")) {
+            return when {
+                supplied.contains("mpegurl") || supplied == "application/vnd.apple.mpegurl" -> MimeTypes.APPLICATION_M3U8
+                supplied.contains("dash+xml") -> MimeTypes.APPLICATION_MPD
+                else -> supplied
+            }
+        }
+        val path = try { android.net.Uri.parse(url).lastPathSegment.orEmpty().lowercase() } catch (_: Exception) { url.lowercase() }
+        val candidate = (supplied.ifBlank { path }).substringBefore("?").substringAfterLast(".")
+        return when (candidate) {
+            "m3u8" -> MimeTypes.APPLICATION_M3U8
+            "mpd" -> MimeTypes.APPLICATION_MPD
+            "mp4", "m4v" -> MimeTypes.VIDEO_MP4
+            "webm" -> MimeTypes.VIDEO_WEBM
+            "mkv" -> "video/x-matroska"
+            "ts", "m2ts" -> MimeTypes.APPLICATION_MPEG2TS
+            "ogv", "ogg" -> "video/ogg"
+            "mov" -> "video/quicktime"
+            "mp3" -> MimeTypes.AUDIO_MPEG
+            "m4a" -> MimeTypes.AUDIO_MP4
+            "aac" -> MimeTypes.AUDIO_AAC
+            else -> null
+        }
     }
 
     fun handleRemoteCommand(command: String) {
