@@ -458,6 +458,8 @@ class MainActivity : Activity() {
         return "lemovi_" + digest.take(12).joinToString("") { "%02x".format(it) }
     }
 
+    private fun openInBrave(rawUrl: String) = openInLemoviBrowser(rawUrl)
+
     private fun openInLemoviBrowser(rawUrl: String) {
         // Cada plataforma obtiene su propio almacén de cookies y almacenamiento web.
         val host = Uri.parse(rawUrl).host?.lowercase().orEmpty()
@@ -497,7 +499,15 @@ class MainActivity : Activity() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val target = request.url
                     return when (target.scheme?.lowercase()) {
-                        "http", "https" -> {\n                            val parts = target.host.orEmpty().lowercase().split(".").filter { it.isNotBlank() }\n                            val key = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else target.host.orEmpty().lowercase()\n                            val nextProfile = safeBrowserProfileName("site_" + key)\n                            if (activeIsolatedProfile != nextProfile) { openIsolatedBrowser("site_" + key, target.toString(), "Navegador Lemovi"); true } else false\n                        }
+                        "http", "https" -> {
+                            val parts = target.host.orEmpty().lowercase().split(".").filter { it.isNotBlank() }
+                            val key = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else target.host.orEmpty().lowercase()
+                            val nextProfile = safeBrowserProfileName("site_" + key)
+                            if (activeIsolatedProfile != nextProfile) {
+                                openIsolatedBrowser("site_" + key, target.toString(), "Navegador Lemovi")
+                                true
+                            } else false
+                        }
                         else -> { try { startActivity(Intent(Intent.ACTION_VIEW, target)) } catch (_: Exception) { }; true }
                     }
                 }
