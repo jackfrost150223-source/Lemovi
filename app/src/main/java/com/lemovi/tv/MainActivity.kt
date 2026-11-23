@@ -45,6 +45,9 @@ class MainActivity : Activity() {
     private var adPopup: WebView? = null
     private lateinit var address: EditText
     private lateinit var bar: LinearLayout
+    private lateinit var addressRow: LinearLayout
+    private lateinit var browserActions: LinearLayout
+    private var catalogMode = true
     private lateinit var pageRoot: LinearLayout
     private lateinit var videoPanel: LinearLayout
     private lateinit var videoResults: LinearLayout
@@ -122,7 +125,7 @@ class MainActivity : Activity() {
         brandRow.addView(brand, LinearLayout.LayoutParams(-1, -1))
         pageRoot.addView(brandRow, LinearLayout.LayoutParams(-1, if (mobileLayout) 48 else 56))
 
-        val addressRow = LinearLayout(this).apply {
+        addressRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -178,7 +181,7 @@ class MainActivity : Activity() {
             pageRoot.addView(bar, LinearLayout.LayoutParams(-1, 52).apply { topMargin = 8; bottomMargin = 7 })
         }
 
-        val browserActions = LinearLayout(this).apply {
+        browserActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -330,7 +333,10 @@ class MainActivity : Activity() {
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    if (!url.isNullOrBlank()) address.setText(url)
+                    if (!url.isNullOrBlank()) {
+                        address.setText(url)
+                        setCatalogMode(url.startsWith("https://v3-cinemeta.strem.io/"))
+                    }
                     videoPanel.visibility = View.GONE
                 }
 
@@ -359,8 +365,27 @@ class MainActivity : Activity() {
         showHomePage()
     }
 
+    private fun setCatalogMode(enabled: Boolean) {
+        catalogMode = enabled
+        val visibility = if (enabled) View.GONE else View.VISIBLE
+        if (::addressRow.isInitialized) addressRow.visibility = visibility
+        if (::bar.isInitialized) bar.visibility = visibility
+        if (::browserActions.isInitialized) browserActions.visibility = visibility
+        if (::searchVideosButton.isInitialized) searchVideosButton.visibility = visibility
+        if (enabled && ::videoPanel.isInitialized) videoPanel.visibility = View.GONE
+    }
+
+    private fun openBrowserMode() {
+        setCatalogMode(false)
+        if (browser.url.orEmpty().startsWith("https://v3-cinemeta.strem.io/")) {
+            address.setText("https://www.google.com/")
+            openAddress()
+        }
+    }
+
     private fun showHomePage() {
         if (!::browser.isInitialized) return
+        setCatalogMode(true)
         videoPanel.visibility = View.GONE
         address.setText("")
         val html = """
@@ -390,7 +415,7 @@ class MainActivity : Activity() {
             @media(max-width:560px){.detail{grid-template-columns:1fr}.detail img{max-width:160px}.grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}}
             </style></head><body>
             <header><div class="brand">LEMOVI</div><nav>
-            <button id="homeTab" class="active">INICIO</button><button id="moviesTab">PELÍCULAS</button><button id="seriesTab">SERIES</button><button id="listTab">MI LISTA</button><button id="addonsTab">COMPLEMENTOS</button>
+            <button id="homeTab" class="active">INICIO</button><button id="moviesTab">PELÍCULAS</button><button id="seriesTab">SERIES</button><button id="listTab">MI LISTA</button><button id="addonsTab">COMPLEMENTOS</button><button id="browserTab">NAVEGADOR</button>
             </nav><div class="search"><input id="query" placeholder="Buscar películas o series..." aria-label="Buscar películas o series"><button id="searchBtn">BUSCAR</button></div></header>
             <main><div id="hero" class="hero"><h1>Tu cine, a tu manera.</h1><div class="muted">Explorá películas y series, descubrí información y encontrá opciones para verlas.</div></div>
             <div id="content"><div class="status">Cargando catálogo...</div></div></main>
@@ -417,7 +442,7 @@ class MainActivity : Activity() {
             function addons(){const prev=currentScreen,prevType=currentType,prevQuery=query.value,prevDetail=lastDetail;if(currentScreen!=='addons')backStack.push(()=>{if(prev==='details'&&prevDetail)details(prevDetail.type,prevDetail.id);else if(prev==='streams'&&prevDetail)details(prevDetail.type,prevDetail.id);else if(prev==='search')searchAll(prevQuery);else if(prev==='catalog')catalog(prevType,'');else if(prev==='list')myList();else homeCatalog();});currentScreen='addons';const saved=JSON.parse(LemoviNative.getAddonList()||'[]');content.innerHTML='<section class="section"><h2>Complementos de reproducción</h2><p class="muted">Agregá complementos compatibles con el protocolo Stremio. Lemovi comprobará su manifiesto y consultará fuentes para películas y episodios.</p><div class="search"><input id="addonUrl" placeholder="https://servidor/manifest.json"><button id="addAddonBtn">AGREGAR</button></div><div id="addonStatus" class="status"></div><div id="addonList"></div></section>';renderAddons(saved);document.getElementById('addAddonBtn').onclick=()=>{const u=document.getElementById('addonUrl').value.trim();const status=document.getElementById('addonStatus');status.textContent='Verificando complemento...';try{const result=JSON.parse(LemoviNative.addAddon(u));if(result.error)throw new Error(result.error);status.textContent='Complemento agregado: '+(result.name||result.id);renderAddons(JSON.parse(LemoviNative.getAddonList()||'[]'));document.getElementById('addonUrl').value='';}catch(e){status.textContent='No se pudo agregar: '+e.message;}};}
 function renderAddons(items){const box=document.getElementById('addonList');if(!box)return;box.innerHTML=items.length?items.map((u,i)=>'<div class="hero"><b>Complemento '+(i+1)+'</b><div class="muted">'+safe(u)+'</div><button data-remove="'+i+'">QUITAR</button></div>').join(''):'<p class="muted">Todavía no agregaste complementos.</p>';box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{LemoviNative.removeAddon(items[Number(b.dataset.remove)]);renderAddons(JSON.parse(LemoviNative.getAddonList()||'[]'));});}
 function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentScreen,prevType=currentType,prevQuery=query.value;backStack.push(()=>{if(prev==='details')details(type,id);else if(prev==='search')searchAll(prevQuery);else if(prev==='catalog')catalog(prevType,'');else homeCatalog();});}currentScreen='streams';const configured=JSON.parse(LemoviNative.getAddonList()||'[]');if(!configured.length){content.innerHTML='<div class="status">Primero agregá un complemento compatible desde COMPLEMENTOS.<br><button id="goAddons">CONFIGURAR COMPLEMENTOS</button></div>';document.getElementById('goAddons').onclick=addons;return;}content.innerHTML='<div class="status">Consultando fuentes de reproducción...</div>';const all=[];for(const url of configured){try{const data=JSON.parse(LemoviNative.getStreams(url,type,id));if(data.error){all.push({name:'Error de complemento',title:data.error,_error:true});continue;}(data.streams||[]).forEach(st=>all.push({...st,_addon:url}));}catch(e){all.push({name:'Error de complemento',title:String(e.message||e),_error:true});}}if(!all.length){content.innerHTML='<div class="status">Los complementos no devolvieron fuentes para este título.</div>';return;}content.innerHTML='<section class="section"><h2>Fuentes disponibles</h2>'+all.map((st,i)=>{const action=st.url&&/^https?:/i.test(st.url)?'<button data-play="'+i+'">REPRODUCIR</button>':st.externalUrl?'<button data-external="'+i+'">ABRIR SERVICIO</button>':st.ytId?'<button data-youtube="'+i+'">VER EN YOUTUBE</button>':st.infoHash||String(st.url||'').startsWith('magnet:')?'<span class="muted">Fuente torrent: motor P2P todavía no integrado.</span>':'<span class="muted">Formato no compatible con el reproductor actual.</span>';return '<div class="hero"><b>'+safe(st.name||st.title||'Fuente '+(i+1))+'</b><p class="muted">'+safe(st.description||st.behaviorHints?.filename||st._addon||'')+'</p>'+(st._error?'<small>'+safe(st.title)+'</small>':action)+'</div>';}).join('')+'</section>';content.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.play)];if(st&&st.url){const headers=st.behaviorHints&&st.behaviorHints.proxyHeaders&&st.behaviorHints.proxyHeaders.request?JSON.stringify(st.behaviorHints.proxyHeaders.request):'{}';LemoviNative.playStream(st.url,st.name||'Lemovi',st._addon,headers,JSON.stringify(st.subtitles||[]));}});content.querySelectorAll('[data-external]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.external)];if(st&&st.externalUrl)LemoviNative.openExternal(st.externalUrl);});content.querySelectorAll('[data-youtube]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.youtube)];if(st&&st.ytId)LemoviNative.openExternal('https://www.youtube.com/watch?v='+encodeURIComponent(st.ytId));});}
-            document.getElementById('homeTab').onclick=()=>homeCatalog();document.getElementById('moviesTab').onclick=()=>catalog('movie','');document.getElementById('seriesTab').onclick=()=>catalog('series','');document.getElementById('listTab').onclick=()=>myList();document.getElementById('addonsTab').onclick=()=>addons();
+            document.getElementById('homeTab').onclick=()=>homeCatalog();document.getElementById('moviesTab').onclick=()=>catalog('movie','');document.getElementById('seriesTab').onclick=()=>catalog('series','');document.getElementById('listTab').onclick=()=>myList();document.getElementById('addonsTab').onclick=()=>addons();document.getElementById('browserTab').onclick=()=>LemoviNative.openBrowser();
             document.getElementById('searchBtn').onclick=()=>{const q=query.value.trim();if(q)searchAll(q);else homeCatalog();};
             query.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('searchBtn').click();});
             homeCatalog();
@@ -563,11 +588,16 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             } catch (e: Exception) { JSONObject().put("error", e.message ?: "Error consultando fuentes.").toString() }
         }
 
+        @JavascriptInterface fun openBrowser() {
+            if (!trustedPage()) return
+            runOnUiThread { openBrowserMode() }
+        }
+
         @JavascriptInterface fun openExternal(raw: String) {
             if (!trustedPage()) return
             try {
                 val url = validateMediaUrl(raw)
-                runOnUiThread { browser.loadUrl(url.toString()) }
+                runOnUiThread { setCatalogMode(false); browser.loadUrl(url.toString()) }
             } catch (e: Exception) {
                 runOnUiThread { Toast.makeText(this@MainActivity, e.message ?: "Enlace externo no válido", Toast.LENGTH_LONG).show() }
             }
