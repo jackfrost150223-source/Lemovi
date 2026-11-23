@@ -323,6 +323,11 @@ class MainActivity : Activity() {
             query.startsWith("video/") || query.contains("mpegurl") || query.contains("dash+xml")
     }
 
+    private fun openNativePlayer(url: String) {
+        startActivity(android.content.Intent(this, PlayerActivity::class.java)
+            .putExtra(PlayerActivity.EXTRA_URL, url))
+    }
+
     // La detección lee solo elementos y recursos expuestos por la página actual.
     // No atraviesa DRM, iframes de otro origen ni extrae manifiestos/segmentos protegidos.
     private fun detectVideos() {
