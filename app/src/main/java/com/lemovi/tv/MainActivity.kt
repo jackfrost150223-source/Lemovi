@@ -925,6 +925,12 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             videoPanel.visibility = View.GONE
         } else if (immersive) {
             toggleImmersive()
+        } else if (::browser.isInitialized && browser.url.orEmpty().startsWith("https://v3-cinemeta.strem.io/")) {
+            browser.evaluateJavascript("(window.lemoviHandleBack ? window.lemoviHandleBack() : false)") { handled ->
+                if (handled != "true") {
+                    if (browser.canGoBack()) browser.goBack() else super.onBackPressed()
+                }
+            }
         } else if (::browser.isInitialized && browser.canGoBack()) {
             browser.goBack()
         } else {
