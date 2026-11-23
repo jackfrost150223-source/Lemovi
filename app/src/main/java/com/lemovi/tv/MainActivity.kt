@@ -151,10 +151,8 @@ class MainActivity : Activity() {
                 setSupportZoom(true)
                 setSupportMultipleWindows(false)
             }
-            CookieManager.getInstance().apply {
-                setAcceptCookie(true)
-                setAcceptThirdPartyCookies(this@apply, true)
-            }
+            CookieManager.getInstance().setAcceptCookie(true)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webChromeClient = object : WebChromeClient() {
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null) return
@@ -174,15 +172,7 @@ class MainActivity : Activity() {
                 }
 
                 override fun onHideCustomView() {
-                    val view = customVideoView ?: return
-                    (window.decorView as FrameLayout).removeView(view)
-                    customVideoView = null
-                    customVideoCallback?.onCustomViewHidden()
-                    customVideoCallback = null
-                    pageRoot.visibility = View.VISIBLE
-                    window.decorView.systemUiVisibility = if (immersive) {
-                        View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    } else 0
+                    hideCustomVideo()
                 }
             }
             webViewClient = object : WebViewClient() {
@@ -248,6 +238,18 @@ class MainActivity : Activity() {
         browser.requestFocus()
     }
 
+    private fun hideCustomVideo() {
+        val view = customVideoView ?: return
+        (window.decorView as FrameLayout).removeView(view)
+        customVideoView = null
+        customVideoCallback?.onCustomViewHidden()
+        customVideoCallback = null
+        pageRoot.visibility = View.VISIBLE
+        window.decorView.systemUiVisibility = if (immersive) {
+            View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        } else 0
+    }
+
     private fun toggleImmersive() {
         immersive = !immersive
         pageRoot.visibility = if (immersive) View.GONE else View.VISIBLE
@@ -258,7 +260,7 @@ class MainActivity : Activity() {
 
     override fun onBackPressed() {
         if (customVideoView != null) {
-            (browser.webChromeClient as? WebChromeClient)?.onHideCustomView()
+            hideCustomVideo()
         } else if (immersive) {
             toggleImmersive()
         } else if (::browser.isInitialized && browser.canGoBack()) {
