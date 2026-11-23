@@ -703,7 +703,7 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
             query.startsWith("video/") || query.contains("mpegurl") || query.contains("dash+xml")
     }
 
-    private fun openNativePlayer(url: String, refererOverride: String? = null, headersJson: String? = null) {
+    private fun openNativePlayer(url: String, refererOverride: String? = null, headersJson: String? = null, subtitlesJson: String? = null) {
         val cookie = CookieManager.getInstance().getCookie(url).orEmpty()
         val referer = refererOverride?.takeIf { it.isNotBlank() } ?: browser.url.orEmpty()
         startActivity(android.content.Intent(this, PlayerActivity::class.java)
@@ -711,7 +711,8 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
             .putExtra(PlayerActivity.EXTRA_USER_AGENT, browser.settings.userAgentString)
             .putExtra(PlayerActivity.EXTRA_COOKIE, cookie)
             .putExtra(PlayerActivity.EXTRA_REFERER, referer)
-            .putExtra(PlayerActivity.EXTRA_HEADERS, headersJson.orEmpty()))
+            .putExtra(PlayerActivity.EXTRA_HEADERS, headersJson.orEmpty())
+            .putExtra(PlayerActivity.EXTRA_SUBTITLES, subtitlesJson.orEmpty()))
     }
 
     // La detección lee solo elementos y recursos expuestos por la página actual.
