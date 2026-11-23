@@ -507,8 +507,9 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
                 if (!manifestUrl.endsWith("/manifest.json")) manifestUrl = manifestUrl.trimEnd('/') + "/manifest.json"
                 validateHttps(manifestUrl)
                 val manifest = requestJson(manifestUrl)
-                require(manifest.optString("id").isNotBlank() && manifest.optString("name").isNotBlank()) {
-                    "El manifiesto no contiene nombre e identificador."
+                require(manifest.optString("id").isNotBlank() && manifest.optString("name").isNotBlank() &&
+                    manifest.optString("version").isNotBlank() && manifest.optJSONArray("types") != null) {
+                    "El manifiesto no contiene los campos obligatorios."
                 }
                 val resources = manifest.optJSONArray("resources") ?: JSONArray()
                 require((0 until resources.length()).any { resources.opt(it) == "stream" ||
@@ -541,6 +542,10 @@ function findStreams(type,id){const configured=JSON.parse(LemoviNative.getAddonL
                 for (i in 0 until saved.length()) if (saved.optString(i) == manifestUrl) registered = true
                 require(registered) { "Complemento no registrado." }
                 val manifest = validateHttps(manifestUrl)
+                val manifestData = requestJson(manifestUrl)
+                require(supportsStream(manifestData, type, id)) {
+                    "Este complemento no admite ${if (type == "movie") "películas" else "este episodio"} o el identificador del título."
+                }
                 val basePath = manifest.path.substringBeforeLast("/")
                 val encodedId = Uri.encode(id, "-_.!~*'()")
                 val route = "$basePath/stream/$type/$encodedId.json"
