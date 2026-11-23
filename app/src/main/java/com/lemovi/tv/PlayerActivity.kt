@@ -60,6 +60,31 @@ class PlayerActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT
             ))
         })
+        // Los controles del reproductor también muestran claramente el foco del mando.
+        playerView.post {
+            val controls = intArrayOf(
+                androidx.media3.ui.R.id.exo_play,
+                androidx.media3.ui.R.id.exo_pause,
+                androidx.media3.ui.R.id.exo_rew,
+                androidx.media3.ui.R.id.exo_ffwd,
+                androidx.media3.ui.R.id.exo_prev,
+                androidx.media3.ui.R.id.exo_next,
+                androidx.media3.ui.R.id.exo_settings,
+                androidx.media3.ui.R.id.exo_subtitle
+            )
+            controls.forEach { id ->
+                playerView.findViewById<View>(id)?.apply {
+                    isFocusable = true
+                    isFocusableInTouchMode = false
+                    setOnFocusChangeListener { v, focused ->
+                        v.setBackgroundColor(if (focused) android.graphics.Color.rgb(18, 75, 105) else android.graphics.Color.TRANSPARENT)
+                        v.elevation = if (focused) 10f else 0f
+                        v.scaleX = if (focused) 1.12f else 1f
+                        v.scaleY = if (focused) 1.12f else 1f
+                    }
+                }
+            }
+        }
 
         val userAgent = intent.getStringExtra(EXTRA_USER_AGENT).orEmpty()
         val cookie = intent.getStringExtra(EXTRA_COOKIE).orEmpty()
