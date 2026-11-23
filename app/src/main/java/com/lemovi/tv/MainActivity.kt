@@ -354,6 +354,7 @@ class MainActivity : Activity() {
             if (hasFocus) address.setSelection(address.text.length)
         }
         address.setText("https://")
+        showHomePage()
     }
 
     private fun showHomePage() {
@@ -361,21 +362,57 @@ class MainActivity : Activity() {
         videoPanel.visibility = View.GONE
         address.setText("")
         val html = """
-            <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-            <style>*{box-sizing:border-box}body{margin:0;background:#090711;color:#fff;font-family:Arial,sans-serif;
-            display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center}
-            main{width:92%;max-width:900px;padding:28px}h1{font-size:clamp(34px,7vw,64px);letter-spacing:8px;
-            color:#8feaff;text-shadow:0 0 18px #087cff}p{color:#c7b6d8;font-size:clamp(15px,2.4vw,22px)}
-            .links{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:30px}
-            a{display:block;text-decoration:none;color:white;background:#241638;border:1px solid #4e83ff;
-            border-radius:12px;padding:18px 24px;font-size:18px;min-width:150px}a:focus{background:#4a2580;outline:3px solid #8feaff}</style>
-            </head><body><main><h1>LEMOVI</h1><p>Tu espacio para explorar y reproducir contenido.</p>
-            <div class="links"><a href="https://www.google.com">Buscar en Google</a>
-            <a href="https://www.youtube.com">YouTube</a>
-            <a href="https://miraculous.now/es-419/watch?s=7&amp;e=701">Miraculous</a></div>
-            <p>Escribí una dirección o lo que querés buscar en la barra superior.</p></main></body></html>
+            <!doctype html>
+            <html lang="es"><head><meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+            <style>
+            *{box-sizing:border-box}body{margin:0;background:#080b14;color:#f4f7ff;font-family:Arial,sans-serif}
+            header{position:sticky;top:0;z-index:5;background:rgba(8,11,20,.97);border-bottom:1px solid #183b59;padding:14px 4vw}
+            .brand{font-size:25px;font-weight:900;letter-spacing:5px;color:#9ceeff;text-shadow:0 0 16px #087cff}
+            nav{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+            button,input{font:inherit;color:#fff;background:#142238;border:1px solid #315b80;border-radius:10px;padding:12px 16px}
+            button{cursor:pointer;font-weight:700}button:focus,input:focus,.card:focus{outline:3px solid #62eaff;outline-offset:3px;background:#17466a}
+            button.active{background:#17466a;border-color:#62eaff}
+            .search{display:flex;gap:8px;margin-top:12px}.search input{flex:1;min-width:100px}
+            main{padding:18px 4vw 45px}.hero{padding:20px;border-radius:18px;background:linear-gradient(110deg,#102e4b,#17112d 75%);border:1px solid #285a80;margin-bottom:22px}
+            h1{font-size:clamp(24px,4vw,38px);margin:0 0 8px}.muted{color:#a9b8ce}.section{margin:24px 0}
+            .section h2{font-size:21px;color:#a6eaff;margin:0 0 13px}
+            .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:14px}
+            .card{background:#111a2b;border:1px solid #203b59;border-radius:12px;overflow:hidden;min-width:0;cursor:pointer}
+            .card:focus{transform:scale(1.035);border-color:#62eaff}
+            .card img{width:100%;aspect-ratio:2/3;object-fit:cover;background:#1c2b40;display:block}
+            .card .info{padding:9px}.card b{display:block;font-size:14px;line-height:1.25}.card small{display:block;color:#9eb0c8;margin-top:5px}
+            .detail{display:grid;grid-template-columns:minmax(120px,220px) 1fr;gap:20px;background:#101a2b;border:1px solid #2b4e70;border-radius:16px;padding:18px}
+            .detail img{width:100%;border-radius:10px}.detail h2{margin:0 0 10px;color:#a6eaff}.episodes{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+            .status{padding:22px;color:#c2d3e8}.hidden{display:none!important}
+            @media(max-width:560px){.detail{grid-template-columns:1fr}.detail img{max-width:160px}.grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}}
+            </style></head><body>
+            <header><div class="brand">LEMOVI</div><nav>
+            <button id="homeTab" class="active">INICIO</button><button id="moviesTab">PELÍCULAS</button><button id="seriesTab">SERIES</button>
+            </nav><div class="search"><input id="query" placeholder="Buscar películas o series..." aria-label="Buscar películas o series"><button id="searchBtn">BUSCAR</button></div></header>
+            <main><div id="hero" class="hero"><h1>Tu cine, a tu manera.</h1><div class="muted">Explorá películas y series, descubrí información y encontrá opciones para verlas.</div></div>
+            <div id="content"><div class="status">Cargando catálogo...</div></div></main>
+            <script>
+            const API='https://v3-cinemeta.strem.io';
+            const content=document.getElementById('content'), query=document.getElementById('query');
+            let currentType='movie';
+            function safe(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+            function card(m){const img=m.poster||'';return '<div class="card" tabindex="0" role="button" data-id="'+safe(m.id)+'" data-type="'+safe(m.type||currentType)+'"><img loading="lazy" src="'+safe(img)+'" onerror="this.style.visibility=\'hidden\'"><div class="info"><b>'+safe(m.name)+'</b><small>'+safe(m.year||'')+(m.imdbRating?' · ★ '+safe(m.imdbRating):'')+'</small></div></div>';}
+            async function catalog(type,term){currentType=type;setTabs(type);content.innerHTML='<div class="status">Buscando títulos...</div>';let path='/catalog/'+type+'/top.json';if(term)path='/catalog/'+type+'/top/search='+encodeURIComponent(term)+'.json';try{const res=await fetch(API+path);if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();const items=data.metas||[];if(!items.length){content.innerHTML='<div class="status">No encontramos resultados. Probá con otro título.</div>';return;}content.innerHTML='<section class="section"><h2>'+(term?'Resultados para “'+safe(term)+'”':type==='movie'?'Películas populares':'Series populares')+'</h2><div class="grid">'+items.map(card).join('')+'</div></section>';content.querySelectorAll('.card').forEach(el=>{el.addEventListener('click',()=>details(el.dataset.type,el.dataset.id));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();details(el.dataset.type,el.dataset.id);}});});}catch(e){content.innerHTML='<div class="status">No se pudo conectar con el catálogo. Revisá tu conexión e intentá nuevamente.<br><small>'+safe(e.message)+'</small></div>';}}
+            function setTabs(type){document.getElementById('homeTab').classList.toggle('active',type==='movie');document.getElementById('moviesTab').classList.toggle('active',type==='movie');document.getElementById('seriesTab').classList.toggle('active',type==='series');}
+            async function details(type,id){content.innerHTML='<div class="status">Cargando ficha...</div>';try{const res=await fetch(API+'/meta/'+type+'/'+encodeURIComponent(id)+'.json');if(!res.ok)throw new Error('No disponible');const data=await res.json(),m=data.meta;if(!m)throw new Error('Sin ficha');let html='<section class="detail"><img src="'+safe(m.poster)+'"><div><h2>'+safe(m.name)+'</h2><p class="muted">'+safe(m.year||'')+' · '+safe(m.genres?m.genres.join(' / '):'')+' · '+(m.imdbRating?'★ '+safe(m.imdbRating):'')+'</p><p>'+safe(m.description||'Sin descripción disponible.')+'</p><button id="whereBtn">DÓNDE VER</button> <button id="backBtn">VOLVER AL CATÁLOGO</button>';if(type==='series'&&m.videos&&m.videos.length){html+='<h3>Temporadas y episodios</h3><div class="episodes">'+m.videos.map(v=>'<button class="episode" data-episode="'+safe(v.id)+'">'+('T'+(v.season||0)+' · E'+(v.episode||0)+' — '+safe(v.title||'Episodio'))+'</button>').join('')+'</div>';}html+='</div></section>';content.innerHTML=html;document.getElementById('backBtn').onclick=()=>catalog(type,'');document.getElementById('whereBtn').onclick=()=>findWhere(m.name);content.querySelectorAll('.episode').forEach(b=>b.onclick=()=>findWhere(m.name+' '+b.textContent));}catch(e){content.innerHTML='<div class="status">No se pudo cargar la ficha. <button id="retry">VOLVER</button></div>';document.getElementById('retry').onclick=()=>catalog(type,'');}}
+            function findWhere(title){const url='https://www.justwatch.com/ar/buscar?q='+encodeURIComponent(title);window.location.href=url;}
+            document.getElementById('homeTab').onclick=()=>catalog('movie','');document.getElementById('moviesTab').onclick=()=>catalog('movie','');document.getElementById('seriesTab').onclick=()=>catalog('series','');
+            document.getElementById('searchBtn').onclick=()=>{const q=query.value.trim();if(q)catalog('movie',q);else catalog(currentType,'');};
+            query.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('searchBtn').click();});
+            catalog('movie','');
+            </script></body></html>
         """.trimIndent()
         browser.loadDataWithBaseURL("https://lemovi.home/", html, "text/html", "UTF-8", null)
+        browser.postDelayed({
+            browser.evaluateJavascript("(function(){var e=document.getElementById('homeTab');if(e)e.focus();})()", null)
+            browser.requestFocus()
+        }, 350)
     }
 
     private fun saveBookmark() {
