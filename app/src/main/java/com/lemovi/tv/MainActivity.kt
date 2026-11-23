@@ -93,8 +93,8 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.statusBarColor = Color.rgb(10, 8, 18)
         window.navigationBarColor = Color.BLACK
-        // Bloqueo de publicidad activado por defecto.
-        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("ad_block_enabled", true)
+        // El bloqueador queda desactivado inicialmente para no romper reproductores web.
+        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("ad_block_enabled", false)
         getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
 
         val mobileLayout = resources.configuration.screenWidthDp < 600
@@ -250,7 +250,7 @@ class MainActivity : Activity() {
                 domStorageEnabled = true
                 databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
-                javaScriptCanOpenWindowsAutomatically = false
+                javaScriptCanOpenWindowsAutomatically = true
                 loadsImagesAutomatically = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
@@ -259,39 +259,46 @@ class MainActivity : Activity() {
                 builtInZoomControls = true
                 displayZoomControls = false
                 setSupportZoom(true)
-                setSupportMultipleWindows(false)
+                setSupportMultipleWindows(true)
             }
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             CookieManager.getInstance().flush()
             webChromeClient = object : WebChromeClient() {
                 override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
-                    // No crear ventanas emergentes: bloquea popunders y anuncios target=_blank.
-                    return false
-                    /*if (resultMsg == null || !::browserHost.isInitialized) return false
+                    // Solo aceptar ventanas solicitadas por una acción del usuario; evita popunders automáticos.
+                    if (!isUserGesture || resultMsg == null || !::browserHost.isInitialized) return false
                     closeAdPopup()
                     val popup = WebView(this@MainActivity).apply {
                         setBackgroundColor(Color.BLACK)
+                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        settings.databaseEnabled = true
                         settings.javaScriptCanOpenWindowsAutomatically = true
                         settings.loadsImagesAutomatically = true
                         settings.mediaPlaybackRequiresUserGesture = false
                         settings.userAgentString = browser.settings.userAgentString
+                        settings.setSupportMultipleWindows(true)
                         CookieManager.getInstance().setAcceptCookie(true)
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                         webViewClient = object : WebViewClient() {
-                            override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean = false
+                            override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean {
+                                val uri = request?.url ?: return false
+                                val scheme = uri.scheme?.lowercase()
+                                if (scheme != "http" && scheme != "https") return true
+                                return false
+                            }
                         }
-                        webChromeClient = WebChromeClient()
+                        webChromeClient = this@MainActivity.browser.webChromeClient
                     }
                     adPopup = popup
                     browserHost.addView(popup, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
                     val transport = resultMsg.obj as? WebView.WebViewTransport ?: run { closeAdPopup(); return false }
                     transport.webView = popup
                     resultMsg.sendToTarget()
-                    popup.postDelayed({ if (adPopup === popup) closeAdPopup() }, 3000)
-                    return true*/
+                    return true
+                }
                 }
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null) return
@@ -454,7 +461,7 @@ class MainActivity : Activity() {
             <html lang="es"><head><meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
             <style>
-            *{box-sizing:border-box}html{scroll-behavior:smooth;overscroll-behavior-y:contain}body{margin:0;background:#080b14;color:#f4f7ff;font-family:Arial,sans-serif;-webkit-overflow-scrolling:touch}
+            *{box-sizing:border-box}html{scroll-behavior:auto;overscroll-behavior-y:contain}body{margin:0;background:#080b14;color:#f4f7ff;font-family:Arial,sans-serif;-webkit-overflow-scrolling:touch}
             header{position:sticky;top:0;z-index:8;background:rgba(8,11,20,.97);border-bottom:1px solid #183b59;padding:14px 4vw 14px 76px;min-height:64px}
             .brand{font-size:25px;font-weight:900;letter-spacing:5px;color:#9ceeff;text-shadow:0 0 16px #087cff}
             nav{position:fixed;z-index:20;left:10px;top:82px;bottom:14px;width:52px;display:flex;flex-direction:column;gap:9px;overflow:visible}
@@ -471,10 +478,10 @@ class MainActivity : Activity() {
             #query{width:0;min-width:0;opacity:0;padding:0;border:0;pointer-events:none;transition:width .18s ease,opacity .15s ease,padding .15s ease}
             .searchDock.expanded #query{width:min(48vw,340px);min-width:110px;opacity:1;padding:11px 13px;border:1px solid #315b80;pointer-events:auto}
             main{padding:18px 4vw 45px 76px}.hero{padding:20px;border-radius:18px;background:linear-gradient(110deg,#102e4b,#17112d 75%);border:1px solid #285a80;margin-bottom:22px}
-            h1{font-size:clamp(24px,4vw,38px);margin:0 0 8px}.muted{color:#a9b8ce}.section{margin:24px 0;content-visibility:auto;contain-intrinsic-size:auto 900px}
+            h1{font-size:clamp(24px,4vw,38px);margin:0 0 8px}.muted{color:#a9b8ce}.section{margin:24px 0}
             .section h2{font-size:21px;color:#a6eaff;margin:0 0 13px}
             .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:14px}
-            .card{background:#111a2b;border:1px solid #203b59;border-radius:12px;overflow:hidden;min-width:0;cursor:pointer;contain:layout paint;transition:transform .12s ease,border-color .12s ease}
+            .card{background:#111a2b;border:1px solid #203b59;border-radius:12px;overflow:hidden;min-width:0;cursor:pointer;transition:border-color .12s ease}
             .card:focus{transform:scale(1.025);border-color:#62eaff;will-change:transform}
             .card img{width:100%;aspect-ratio:2/3;object-fit:cover;background:#1c2b40;display:block}
             .card .info{padding:9px}.card b{display:block;font-size:14px;line-height:1.25}.card small{display:block;color:#9eb0c8;margin-top:5px}
