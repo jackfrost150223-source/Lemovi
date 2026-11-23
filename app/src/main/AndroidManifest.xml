@@ -6,7 +6,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="Lemovi"
+        android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="true">
         <activity
