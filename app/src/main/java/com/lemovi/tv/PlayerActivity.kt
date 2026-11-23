@@ -74,7 +74,7 @@ class PlayerActivity : Activity() {
                 androidx.media3.ui.R.id.exo_settings,
                 androidx.media3.ui.R.id.exo_subtitle
             )
-            controls.forEach { id ->
+            val focusTargets = controls.mapNotNull { id ->
                 playerView.findViewById<View>(id)?.apply {
                     isFocusable = true
                     isFocusableInTouchMode = false
@@ -86,6 +86,7 @@ class PlayerActivity : Activity() {
                     }
                 }
             }
+            focusTargets.firstOrNull { it.visibility == View.VISIBLE }?.requestFocus()
         }
 
         val userAgent = intent.getStringExtra(EXTRA_USER_AGENT).orEmpty()
