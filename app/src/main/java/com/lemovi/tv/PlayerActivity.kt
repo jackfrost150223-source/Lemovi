@@ -95,18 +95,26 @@ class PlayerActivity : Activity() {
         val addonHeaders = try { org.json.JSONObject(intent.getStringExtra(EXTRA_HEADERS).orEmpty()) } catch (_: Exception) { org.json.JSONObject() }
         val safeHeaderNames = setOf("user-agent", "referer", "origin", "cookie", "authorization", "accept", "accept-language")
         addonHeaders.keys().forEach { key ->
-            if (key.lowercase() in safeHeaderNames) {
-                val value = addonHeaders.optString(key)
-                if (value.isNotBlank() && value.length <= 4096) requestHeaders[key] = value
+            val normalized = when (key.lowercase()) {
+                "user-agent" -> "User-Agent"
+                "referer" -> "Referer"
+                "origin" -> "Origin"
+                "cookie" -> "Cookie"
+                "authorization" -> "Authorization"
+                "accept" -> "Accept"
+                "accept-language" -> "Accept-Language"
+                else -> ""
             }
+            val value = addonHeaders.optString(key)
+            if (normalized.isNotBlank() && value.isNotBlank() && value.length <= 4096) requestHeaders[normalized] = value
         }
-        if (userAgent.isNotBlank()) requestHeaders["User-Agent"] = userAgent
-        if (cookie.isNotBlank()) requestHeaders["Cookie"] = cookie
-        if (referer.isNotBlank()) {
+        if (userAgent.isNotBlank() && "User-Agent" !in requestHeaders) requestHeaders["User-Agent"] = userAgent
+        if (cookie.isNotBlank() && "Cookie" !in requestHeaders) requestHeaders["Cookie"] = cookie
+        if (referer.isNotBlank() && "Referer" !in requestHeaders) {
             requestHeaders["Referer"] = referer
             try {
                 val origin = android.net.Uri.parse(referer).let { "${it.scheme}://${it.host}" }
-                if (origin != "null://null") requestHeaders["Origin"] = origin
+                if (origin != "null://null" && "Origin" !in requestHeaders) requestHeaders["Origin"] = origin
             } catch (_: Exception) { }
         }
         val httpFactory = DefaultHttpDataSource.Factory()
