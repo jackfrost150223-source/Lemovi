@@ -1231,6 +1231,10 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
     }
 
     private fun dispatchRemoteCommand(command: String) {
+        PlayerActivity.activeInstance?.let { activePlayer ->
+            activePlayer.handleRemoteCommand(command)
+            return
+        }
         when (command) {
             "VOL_UP" -> (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
                 .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_RAISE, android.media.AudioManager.FLAG_SHOW_UI)
