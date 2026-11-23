@@ -9,6 +9,8 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import java.io.ByteArrayInputStream
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -27,11 +29,20 @@ class MainActivity : Activity() {
     private val history = mutableListOf<String>()
     private var historyIndex = -1
     private var immersive = false
+    private var adBlockEnabled = true
+    private lateinit var adBlockButton: Button
+
+    // Lista inicial de dominios publicitarios conocidos. Se puede ampliar en futuras versiones.
+    private val blockedAdHosts = setOf(
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+        "adservice.google.com", "adnxs.com"
+    )
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("ad_block_enabled", true)
         window.statusBarColor = Color.rgb(10, 8, 18)
         window.navigationBarColor = Color.BLACK
 
@@ -71,12 +82,20 @@ class MainActivity : Activity() {
         val back = makeButton("◀") { if (browser.canGoBack()) browser.goBack() }
         val forward = makeButton("▶") { if (browser.canGoForward()) browser.goForward() }
         val full = makeButton("⛶") { toggleImmersive() }
+        adBlockButton = makeButton(if (adBlockEnabled) "AD: ON" else "AD: OFF") {
+            adBlockEnabled = !adBlockEnabled
+            getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
+            adBlockButton.text = if (adBlockEnabled) "AD: ON" else "AD: OFF"
+            Toast.makeText(this, if (adBlockEnabled) "Bloqueador activado" else "Bloqueador desactivado", Toast.LENGTH_SHORT).show()
+            browser.reload()
+        }
 
         bar.addView(address, LinearLayout.LayoutParams(0, 54, 1f))
         bar.addView(go, buttonParams())
         bar.addView(back, buttonParams())
         bar.addView(forward, buttonParams())
         bar.addView(full, buttonParams())
+        bar.addView(adBlockButton, LinearLayout.LayoutParams(86, 54).apply { leftMargin = 7 })
         root.addView(bar)
 
         browser = WebView(this).apply {
@@ -91,6 +110,21 @@ class MainActivity : Activity() {
             webChromeClient = WebChromeClient()
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
+
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                    val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
+                    val host = uri.host?.lowercase() ?: return super.shouldInterceptRequest(view, request)
+                    val isAdHost = blockedAdHosts.any { host == it || host.endsWith(".$it") }
+                    if (adBlockEnabled && !request.isForMainFrame && isAdHost) {
+                        return WebResourceResponse(
+                            "text/plain",
+                            "UTF-8",
+                            ByteArrayInputStream(ByteArray(0))
+                        )
+                    }
+                    return super.shouldInterceptRequest(view, request)
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
                     if (!url.isNullOrBlank()) address.setText(url)
                 }
