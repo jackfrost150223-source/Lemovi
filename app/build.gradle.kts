@@ -15,6 +15,19 @@ android {
         versionName = "1.0"
     }
 
+    flavorDimensions += "device"
+    productFlavors {
+        create("tv") {
+            dimension = "device"
+            resValue("string", "app_name", "Lemovi TV")
+        }
+        create("mobile") {
+            dimension = "device"
+            applicationIdSuffix = ".mobile"
+            resValue("string", "app_name", "Lemovi Mobile")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
