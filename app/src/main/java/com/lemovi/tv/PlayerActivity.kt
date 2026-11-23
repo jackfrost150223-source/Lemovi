@@ -8,6 +8,8 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -19,6 +21,9 @@ import androidx.media3.ui.PlayerView
 class PlayerActivity : Activity() {
     companion object {
         const val EXTRA_URL = "lemovi.video_url"
+        const val EXTRA_USER_AGENT = "lemovi.user_agent"
+        const val EXTRA_COOKIE = "lemovi.cookie"
+        const val EXTRA_REFERER = "lemovi.referer"
     }
 
     private var player: ExoPlayer? = null
@@ -56,6 +61,25 @@ class PlayerActivity : Activity() {
             ))
         })
 
+        val userAgent = intent.getStringExtra(EXTRA_USER_AGENT).orEmpty()
+        val cookie = intent.getStringExtra(EXTRA_COOKIE).orEmpty()
+        val referer = intent.getStringExtra(EXTRA_REFERER).orEmpty()
+        val requestHeaders = mutableMapOf<String, String>()
+        if (userAgent.isNotBlank()) requestHeaders["User-Agent"] = userAgent
+        if (cookie.isNotBlank()) requestHeaders["Cookie"] = cookie
+        if (referer.isNotBlank()) {
+            requestHeaders["Referer"] = referer
+            try {
+                val origin = android.net.Uri.parse(referer).let { "${it.scheme}://${it.host}" }
+                if (origin != "null://null") requestHeaders["Origin"] = origin
+            } catch (_: Exception) { }
+        }
+        val httpFactory = DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(30000)
+            .setDefaultRequestProperties(requestHeaders)
+
         // Inicio rápido sin vaciar el búfer ante pequeñas variaciones de red.
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -69,6 +93,7 @@ class PlayerActivity : Activity() {
 
         val trackSelector = DefaultTrackSelector(this)
         player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(httpFactory))
             .setLoadControl(loadControl)
             .setTrackSelector(trackSelector)
             .build()
@@ -84,7 +109,17 @@ class PlayerActivity : Activity() {
                         ).show()
                     }
                 })
-                exo.setMediaItem(MediaItem.fromUri(url))
+                val mediaItem = MediaItem.Builder()
+                    .setUri(url)
+                    .apply {
+                        val lower = url.lowercase()
+                        when {
+                            lower.contains(".m3u8") || lower.contains("mpegurl") -> setMimeType(MimeTypes.APPLICATION_M3U8)
+                            lower.contains(".mpd") || lower.contains("dash+xml") -> setMimeType(MimeTypes.APPLICATION_MPD)
+                        }
+                    }
+                    .build()
+                exo.setMediaItem(mediaItem)
                 exo.prepare()
                 exo.playWhenReady = true
             }
