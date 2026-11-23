@@ -445,7 +445,7 @@ class MainActivity : Activity() {
               content.innerHTML='<div class="status">Buscando películas en Internet Archive...</div>';
               try{
                 const params=new URLSearchParams();
-                params.set('q',term?'mediatype:movies AND '+term:'mediatype:movies');
+                const escapedTerm=String(term||'').replace(/\\/g,'\\\\').replace(/\"/g,'\\\"');\n                params.set('q',term?'mediatype:movies AND title:\"'+escapedTerm+'\"':'mediatype:movies');
                 params.append('fl[]','identifier');params.append('fl[]','title');params.append('fl[]','year');
                 params.append('fl[]','creator');params.append('fl[]','downloads');
                 params.set('rows','24');params.set('page','1');params.set('output','json');
@@ -462,7 +462,7 @@ class MainActivity : Activity() {
               }catch(e){content.innerHTML='<div class="status">No se pudo consultar Internet Archive. Revisá tu conexión e intentá nuevamente.<br><small>'+safe(e.message)+'</small></div>';}
             }
             async function archiveDetails(id){
-              const previousId=id;currentScreen='archiveDetails';
+              const previousId=id,previousTerm=query.value.trim();if(currentScreen!=='archiveDetails')backStack.push(function(){archiveSearch(previousTerm);});currentScreen='archiveDetails';
               content.innerHTML='<div class="status">Verificando ficha y licencia...</div>';
               try{
                 const response=await fetch('https://archive.org/metadata/'+encodeURIComponent(id));
@@ -470,7 +470,7 @@ class MainActivity : Activity() {
                 const data=await response.json(),m=data.metadata||{},files=data.files||[];
                 const title=m.title||id,license=m.licenseurl||'',rights=m.rights||'';
                 const openLicense=/creativecommons\.org\/(licenses|publicdomain)/i.test(license);
-                const publicDomain=/public domain|dominio publico|dominio público|cc0/i.test(rights+' '+license);
+                const publicDomain=/public domain|dominio publico|dominio público|cc0|creative commons|creativecommons/i.test(rights+' '+license);
                 const verified=openLicense||publicDomain;
                 const videos=files.filter(function(file){return file.name&&/\.(mp4|m4v|webm)$/i.test(file.name)&&!file.name.toLowerCase().includes('_meta');})
                   .sort(function(a,b){return Number(a.size||0)-Number(b.size||0);});
