@@ -445,7 +445,8 @@ class MainActivity : Activity() {
               content.innerHTML='<div class="status">Buscando películas en Internet Archive...</div>';
               try{
                 const params=new URLSearchParams();
-                const escapedTerm=String(term||'').replace(/\\/g,'\\\\').replace(/\"/g,'\\\"');\n                params.set('q',term?'mediatype:movies AND title:\"'+escapedTerm+'\"':'mediatype:movies');
+                const escapedTerm=String(term||'').replace(/\\/g,'\\\\').replace(/\"/g,'\\\"');
+                params.set('q',term?'mediatype:movies AND title:\"'+escapedTerm+'\"':'mediatype:movies');
                 params.append('fl[]','identifier');params.append('fl[]','title');params.append('fl[]','year');
                 params.append('fl[]','creator');params.append('fl[]','downloads');
                 params.set('rows','24');params.set('page','1');params.set('output','json');
@@ -473,7 +474,7 @@ class MainActivity : Activity() {
                 const publicDomain=/public domain|dominio publico|dominio público|cc0|creative commons|creativecommons/i.test(rights+' '+license);
                 const verified=openLicense||publicDomain;
                 const videos=files.filter(function(file){return file.name&&/\.(mp4|m4v|webm)$/i.test(file.name)&&!file.name.toLowerCase().includes('_meta');})
-                  .sort(function(a,b){return Number(a.size||0)-Number(b.size||0);});
+                  .sort(function(a,b){return Number(b.size||0)-Number(a.size||0);});
                 const desc=String(m.description||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').slice(0,900);
                 let html='<section class="detail"><img src="https://archive.org/services/img/'+safe(id)+'"><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(m.year||m.date||'')+' · '+safe(m.creator||'')+'</p><p>'+safe(desc||'Sin descripción disponible.')+'</p>';
                 html+='<p><b>Derechos:</b> '+safe(rights||'No declarados')+'</p>';
