@@ -107,7 +107,14 @@ class MainActivity : Activity() {
         getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
 
         val mobileLayout = resources.configuration.screenWidthDp < 600
-        if (!packageName.endsWith(".mobile")) {\n            remotePairingCode = (100000..999999).random().toString()\n            remoteServer = RemoteControlServer(8765, remotePairingCode) { command ->\n                runOnUiThread { dispatchRemoteCommand(command) }\n            }.also { it.start() }\n        }\n\n        pageRoot = LinearLayout(this).apply {
+        if (!packageName.endsWith(".mobile")) {
+            remotePairingCode = (100000..999999).random().toString()
+            remoteServer = RemoteControlServer(8765, remotePairingCode) { command ->
+                runOnUiThread { dispatchRemoteCommand(command) }
+            }.also { it.start() }
+        }
+
+        pageRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(10, 8, 18))
             setPadding(if (mobileLayout) 12 else 22, if (mobileLayout) 14 else 18,
@@ -204,6 +211,8 @@ class MainActivity : Activity() {
         browserActions.addView(makeButton("★ FAVORITOS", "Abrir páginas guardadas") { showBookmarks() },
             LinearLayout.LayoutParams(0, if (mobileLayout) 40 else 44, 1f).apply { leftMargin = 6 })
         browserActions.addView(makeButton("＋ GUARDAR", "Guardar la página actual en favoritos") { saveBookmark() },
+            LinearLayout.LayoutParams(0, if (mobileLayout) 40 else 44, 1f).apply { leftMargin = 6 })
+        browserActions.addView(makeButton("CONTROL", "Abrir el control remoto de Lemovi TV") { openRemoteControl() },
             LinearLayout.LayoutParams(0, if (mobileLayout) 40 else 44, 1f).apply { leftMargin = 6 })
         pageRoot.addView(browserActions, LinearLayout.LayoutParams(-1, if (mobileLayout) 40 else 44).apply { bottomMargin = 6 })
 
@@ -1301,6 +1310,8 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
     }
 
     override fun onDestroy() {
+        remoteServer?.stop()
+        remoteServer = null
         hideIsolatedBrowser()
         if (::browser.isInitialized) {
             closeAdPopup()
