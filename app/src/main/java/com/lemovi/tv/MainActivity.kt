@@ -449,7 +449,7 @@ class MainActivity : Activity() {
     }
 
     private fun openBrowserMode() {
-        openIsolatedBrowser("lemovi_browser", "https://www.google.com/", "Navegador Lemovi")
+        openInLemoviBrowser("https://www.google.com/")
     }
 
     private fun safeBrowserProfileName(profileId: String): String {
@@ -461,7 +461,9 @@ class MainActivity : Activity() {
     private fun openInLemoviBrowser(rawUrl: String) {
         // Cada plataforma obtiene su propio almacén de cookies y almacenamiento web.
         val host = Uri.parse(rawUrl).host?.lowercase().orEmpty()
-        val profileId = if (host.isBlank()) "lemovi_browser" else "site_" + host
+        val domainParts = host.split(".").filter { it.isNotBlank() }
+        val siteKey = if (domainParts.size >= 2) domainParts.takeLast(2).joinToString(".") else host
+        val profileId = if (siteKey.isBlank()) "lemovi_browser" else "site_" + siteKey
         openIsolatedBrowser(profileId, rawUrl, "Navegador Lemovi")
     }
 
@@ -495,7 +497,7 @@ class MainActivity : Activity() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val target = request.url
                     return when (target.scheme?.lowercase()) {
-                        "http", "https" -> false
+                        "http", "https" -> {\n                            val parts = target.host.orEmpty().lowercase().split(".").filter { it.isNotBlank() }\n                            val key = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else target.host.orEmpty().lowercase()\n                            val nextProfile = safeBrowserProfileName("site_" + key)\n                            if (activeIsolatedProfile != nextProfile) { openIsolatedBrowser("site_" + key, target.toString(), "Navegador Lemovi"); true } else false\n                        }
                         else -> { try { startActivity(Intent(Intent.ACTION_VIEW, target)) } catch (_: Exception) { }; true }
                     }
                 }
@@ -509,7 +511,7 @@ class MainActivity : Activity() {
                 val value = urlField.text.toString().trim()
                 val target = if (value.contains("://")) value else "https://" + value
                 val parsed = Uri.parse(target)
-                if (parsed.scheme == "http" || parsed.scheme == "https") web.loadUrl(target) else Toast.makeText(this@MainActivity, "Dirección no válida", Toast.LENGTH_SHORT).show()
+                if (parsed.scheme == "http" || parsed.scheme == "https") openInLemoviBrowser(target) else Toast.makeText(this@MainActivity, "Dirección no válida", Toast.LENGTH_SHORT).show()
             } }
             urlField.setOnEditorActionListener { _, actionId, _ -> if (actionId == EditorInfo.IME_ACTION_GO) { go.performClick(); true } else false }
             toolbar.addView(back, LinearLayout.LayoutParams(-2, -2))
