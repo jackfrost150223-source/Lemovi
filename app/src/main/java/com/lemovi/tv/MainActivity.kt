@@ -486,15 +486,19 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Solo se permiten enlaces HTTP o HTTPS", Toast.LENGTH_LONG).show()
             return
         }
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
-            Toast.makeText(this, "Este Android System WebView no admite perfiles aislados. Actualizá Android System WebView.", Toast.LENGTH_LONG).show()
-            return
-        }
+        // En WebView antiguos, abrir en modo compatible en vez de bloquear el navegador.
+        // La separación real de cookies solo está disponible cuando el motor admite MULTI_PROFILE.
+        val supportsProfiles = try {
+            WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)
+        } catch (_: Exception) { false }
         hideIsolatedBrowser()
         try {
-            val profileName = safeBrowserProfileName(profileId)
+            val profileName = if (supportsProfiles) safeBrowserProfileName(profileId) else null
             val web = WebView(this)
-            WebViewCompat.setProfile(web, profileName)
+            if (profileName != null) WebViewCompat.setProfile(web, profileName)
+            if (!supportsProfiles) {
+                Toast.makeText(this, "Navegador en modo compatible: este dispositivo no admite sesiones aisladas. Actualizá Android System WebView desde Play Store para habilitarlas.", Toast.LENGTH_LONG).show()
+            }
             web.settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
@@ -514,7 +518,7 @@ class MainActivity : Activity() {
                             val parts = target.host.orEmpty().lowercase().split(".").filter { it.isNotBlank() }
                             val key = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else target.host.orEmpty().lowercase()
                             val nextProfile = safeBrowserProfileName("site_" + key)
-                            if (activeIsolatedProfile != nextProfile) {
+                            if (supportsProfiles && activeIsolatedProfile != nextProfile) {
                                 openIsolatedBrowser("site_" + key, target.toString(), "Navegador Lemovi")
                                 true
                             } else false
