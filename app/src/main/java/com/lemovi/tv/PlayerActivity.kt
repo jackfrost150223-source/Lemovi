@@ -187,12 +187,13 @@ class PlayerActivity : Activity() {
     }
 
     private fun inferMimeType(url: String, hint: String): String? {
-        val supplied = hint.trim().lowercase()
+        val supplied = hint.trim().lowercase().substringBefore(";").trim()
         if (supplied.contains("/") && !supplied.contains("\\r") && !supplied.contains("\\n")) {
             return when {
                 supplied.contains("mpegurl") || supplied == "application/vnd.apple.mpegurl" -> MimeTypes.APPLICATION_M3U8
                 supplied.contains("dash+xml") -> MimeTypes.APPLICATION_MPD
-                else -> supplied
+                supplied.startsWith("video/") || supplied.startsWith("audio/") -> supplied
+                else -> null
             }
         }
         val path = try { android.net.Uri.parse(url).lastPathSegment.orEmpty().lowercase() } catch (_: Exception) { url.lowercase() }
