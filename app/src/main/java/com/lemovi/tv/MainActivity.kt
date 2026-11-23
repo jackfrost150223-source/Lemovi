@@ -472,12 +472,9 @@ class MainActivity : Activity() {
     private fun openInBrave(rawUrl: String) = openInLemoviBrowser(rawUrl)
 
     private fun openInLemoviBrowser(rawUrl: String) {
-        // Cada plataforma obtiene su propio almacén de cookies y almacenamiento web.
-        val host = Uri.parse(rawUrl).host?.lowercase().orEmpty()
-        val domainParts = host.split(".").filter { it.isNotBlank() }
-        val siteKey = if (domainParts.size >= 2) domainParts.takeLast(2).joinToString(".") else host
-        val profileId = if (siteKey.isBlank()) "lemovi_browser" else "site_" + siteKey
-        openIsolatedBrowser(profileId, rawUrl, "Navegador Lemovi")
+        // El navegador general conserva un único perfil entre dominios.
+        // Cambiar de perfil en cada redirección impedía completar búsquedas e inicios de sesión.
+        openIsolatedBrowser("lemovi_browser", rawUrl, "Navegador Lemovi")
     }
 
     private fun openIsolatedBrowser(profileId: String, rawUrl: String, title: String) {
@@ -514,33 +511,34 @@ class MainActivity : Activity() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val target = request.url
                     return when (target.scheme?.lowercase()) {
-                        "http", "https" -> {
-                            val parts = target.host.orEmpty().lowercase().split(".").filter { it.isNotBlank() }
-                            val key = if (parts.size >= 2) parts.takeLast(2).joinToString(".") else target.host.orEmpty().lowercase()
-                            val nextProfile = safeBrowserProfileName("site_" + key)
-                            if (supportsProfiles && activeIsolatedProfile != nextProfile) {
-                                openIsolatedBrowser("site_" + key, target.toString(), "Navegador Lemovi")
-                                true
-                            } else false
+                        "http", "https" -> false
+                        else -> {
+                            try { startActivity(Intent(Intent.ACTION_VIEW, target)) } catch (_: Exception) { }
+                            true
                         }
-                        else -> { try { startActivity(Intent(Intent.ACTION_VIEW, target)) } catch (_: Exception) { }; true }
                     }
                 }
             }
             web.webChromeClient = WebChromeClient()
             val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(8, 11, 20)) }
             val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(8, 8, 8, 8); setBackgroundColor(Color.rgb(20, 13, 35)) }
-            val back = Button(this).apply { text = "‹ Lemovi"; isAllCaps = false; setOnClickListener { hideIsolatedBrowser() } }
+            val backToApp = Button(this).apply { text = "‹ Lemovi"; isAllCaps = false; setOnClickListener { hideIsolatedBrowser() } }
+            val pageBack = Button(this).apply { text = "‹"; isAllCaps = false; contentDescription = "Página anterior"; setOnClickListener { if (web.canGoBack()) web.goBack() } }
+            val pageForward = Button(this).apply { text = "›"; isAllCaps = false; contentDescription = "Página siguiente"; setOnClickListener { if (web.canGoForward()) web.goForward() } }
             val urlField = EditText(this).apply { setSingleLine(true); setTextColor(Color.WHITE); setHintTextColor(Color.LTGRAY); hint = "Dirección web"; setText(uri.toString()); imeOptions = EditorInfo.IME_ACTION_GO; setSelectAllOnFocus(true) }
             val go = Button(this).apply { text = "Ir"; isAllCaps = false; setOnClickListener {
-                val value = urlField.text.toString().trim()
-                val target = if (value.contains("://")) value else "https://" + value
+                var target = urlField.text.toString().trim()
+                if (target.isNotEmpty() && !target.contains("://")) target = "https://" + target
                 val parsed = Uri.parse(target)
-                if (parsed.scheme == "http" || parsed.scheme == "https") openInLemoviBrowser(target) else Toast.makeText(this@MainActivity, "Dirección no válida", Toast.LENGTH_SHORT).show()
+                if ((parsed.scheme == "http" || parsed.scheme == "https") && !parsed.host.isNullOrBlank()) {
+                    web.loadUrl(target)
+                } else Toast.makeText(this@MainActivity, "Dirección no válida", Toast.LENGTH_SHORT).show()
             } }
             urlField.setOnEditorActionListener { _, actionId, _ -> if (actionId == EditorInfo.IME_ACTION_GO) { go.performClick(); true } else false }
-            toolbar.addView(back, LinearLayout.LayoutParams(-2, -2))
-            toolbar.addView(urlField, LinearLayout.LayoutParams(0, 52, 1f).apply { leftMargin = 8; rightMargin = 8 })
+            toolbar.addView(backToApp, LinearLayout.LayoutParams(-2, -2))
+            toolbar.addView(pageBack, LinearLayout.LayoutParams(42, 52).apply { leftMargin = 4 })
+            toolbar.addView(pageForward, LinearLayout.LayoutParams(42, 52).apply { leftMargin = 4 })
+            toolbar.addView(urlField, LinearLayout.LayoutParams(0, 52, 1f).apply { leftMargin = 6; rightMargin = 6 })
             toolbar.addView(go, LinearLayout.LayoutParams(-2, -2))
             panel.addView(toolbar, LinearLayout.LayoutParams(-1, -2))
             panel.addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -646,7 +644,28 @@ class MainActivity : Activity() {
             function safe(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
             function card(m){const img=m.poster||'';return '<div class="card" tabindex="0" role="button" data-id="'+safe(m.id)+'" data-type="'+safe(m.type||currentType)+'"><img loading="lazy" decoding="async" src="'+safe(img)+'" onerror="this.style.visibility=\'hidden\'"><div class="info"><b>'+safe(m.name)+'</b><small>'+safe(m.year||'')+(m.imdbRating?' · ★ '+safe(m.imdbRating):'')+'</small></div></div>';}
             async function catalog(type,term){backStack=[];currentScreen='catalog';currentType=type;setTabs(type);content.innerHTML='<div class="status">Buscando títulos...</div>';let path='/catalog/'+type+'/top.json';if(term)path='/catalog/'+type+'/top/search='+encodeURIComponent(term)+'.json';try{const res=await fetch(API+path);if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();const items=data.metas||[];if(!items.length){content.innerHTML='<div class="status">No encontramos resultados. Probá con otro título.</div>';return;}content.innerHTML='<section class="section"><h2>'+(term?'Resultados para “'+safe(term)+'”':type==='movie'?'Películas populares':'Series populares')+'</h2><div class="grid">'+items.map(card).join('')+'</div></section>';bindCards();}catch(e){content.innerHTML='<div class="status">No se pudo conectar con el catálogo. Revisá tu conexión e intentá nuevamente.<br><small>'+safe(e.message)+'</small></div>';}}
-            function bindCards(){content.querySelectorAll('.card').forEach(el=>{el.addEventListener('click',()=>details(el.dataset.type,el.dataset.id));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();details(el.dataset.type,el.dataset.id);}});});}
+            function bindCards(){content.querySelectorAll('.card').forEach(el=>{el.addEventListener('click',()=>details(el.dataset.type,el.dataset.id));el.addEventListener('focus',()=>el.scrollIntoView({block:'nearest',inline:'nearest'}));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();details(el.dataset.type,el.dataset.id);}});});}
+            // Navegación espacial estable con el control remoto: evita que el foco salte
+            // de una tarjeta a la barra lateral o a la cabecera al recorrer la cartelera.
+            document.addEventListener('keydown',e=>{
+              if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))return;
+              const current=document.activeElement;
+              if(!current||!current.classList||!current.classList.contains('card'))return;
+              const cards=Array.from(content.querySelectorAll('.card')).filter(el=>el!==current);
+              const a=current.getBoundingClientRect(),ax=a.left+a.width/2,ay=a.top+a.height/2;
+              let best=null,bestScore=Infinity;
+              cards.forEach(el=>{
+                const r=el.getBoundingClientRect(),dx=r.left+r.width/2-ax,dy=r.top+r.height/2-ay;
+                let primary,cross;
+                if(e.key==='ArrowRight'){if(dx<=2)return;primary=dx;cross=Math.abs(dy);}
+                else if(e.key==='ArrowLeft'){if(dx>=-2)return;primary=-dx;cross=Math.abs(dy);}
+                else if(e.key==='ArrowDown'){if(dy<=2)return;primary=dy;cross=Math.abs(dx);}
+                else {if(dy>=-2)return;primary=-dy;cross=Math.abs(dx);}
+                const score=primary+cross*1.8;
+                if(score<bestScore){bestScore=score;best=el;}
+              });
+              if(best){e.preventDefault();e.stopPropagation();best.focus();best.scrollIntoView({block:'nearest',inline:'nearest'});}
+            },true);
             async function homeCatalog(){backStack=[];currentScreen='home';setTabs('home');content.innerHTML='<div class="status">Cargando películas y series...</div>';try{const results=await Promise.all([fetch(API+'/catalog/movie/top.json').then(r=>r.json()),fetch(API+'/catalog/series/top.json').then(r=>r.json())]);const movies=results[0].metas||[],series=results[1].metas||[];content.innerHTML=(movies.length?'<section class="section"><h2>Películas populares</h2><div class="grid">'+movies.slice(0,20).map(m=>{m.type='movie';return card(m);}).join('')+'</div></section>':'')+(series.length?'<section class="section"><h2>Series populares</h2><div class="grid">'+series.slice(0,20).map(m=>{m.type='series';return card(m);}).join('')+'</div></section>':'');if(!movies.length&&!series.length)content.innerHTML='<div class="status">El catálogo no devolvió títulos.</div>';bindCards();}catch(e){content.innerHTML='<div class="status">No se pudo cargar el catálogo. Revisá tu conexión e intentá nuevamente.</div>';}}
             async function searchAll(term){backStack=[];currentScreen='search';content.innerHTML='<div class="status">Buscando en películas y series...</div>';try{const results=await Promise.all([fetch(API+'/catalog/movie/top/search='+encodeURIComponent(term)+'.json').then(r=>r.json()),fetch(API+'/catalog/series/top/search='+encodeURIComponent(term)+'.json').then(r=>r.json())]);const movies=results[0].metas||[],series=results[1].metas||[];movies.forEach(m=>m.type='movie');series.forEach(m=>m.type='series');content.innerHTML=(movies.length?'<section class="section"><h2>Películas</h2><div class="grid">'+movies.map(card).join('')+'</div></section>':'')+(series.length?'<section class="section"><h2>Series</h2><div class="grid">'+series.map(card).join('')+'</div></section>':'');if(!movies.length&&!series.length)content.innerHTML='<div class="status">No encontramos resultados para “'+safe(term)+'”.</div>';bindCards();}catch(e){content.innerHTML='<div class="status">No se pudo completar la búsqueda.</div>';}}
             function setTabs(type){document.getElementById('homeTab').classList.toggle('active',type==='home');document.getElementById('moviesTab').classList.toggle('active',type==='movie');document.getElementById('seriesTab').classList.toggle('active',type==='series');document.getElementById('archiveTab').classList.toggle('active',type==='archive');document.getElementById('listTab').classList.toggle('active',type==='list');}
