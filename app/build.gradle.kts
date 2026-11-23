@@ -11,8 +11,8 @@ android {
         applicationId = "com.lemovi.tv"
         minSdk = 23
         targetSdk = 28
-        versionCode = 20
-        versionName = "1.4.6"
+        versionCode = 21
+        versionName = "1.4.7"
     }
 
     flavorDimensions += "device"
