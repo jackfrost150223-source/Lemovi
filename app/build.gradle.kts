@@ -11,8 +11,8 @@ android {
         applicationId = "com.lemovi.tv"
         minSdk = 23
         targetSdk = 28
-        versionCode = 21
-        versionName = "1.4.7"
+        versionCode = 22
+        versionName = "1.4.8"
     }
 
     flavorDimensions += "device"
@@ -45,6 +45,7 @@ android {
 
 
 dependencies {
+    implementation("androidx.webkit:webkit:1.9.0")
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.5.1")
     implementation("androidx.media3:media3-exoplayer-dash:1.5.1")
