@@ -363,7 +363,55 @@ class MainActivity : Activity() {
         browserHost = FrameLayout(this)
         browserHost.addView(browser, FrameLayout.LayoutParams(-1, -1))
         pageRoot.addView(browserHost, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(pageRoot)
+        val appRoot = FrameLayout(this)
+        appRoot.addView(pageRoot, FrameLayout.LayoutParams(-1, -1))
+
+        // Presentación de inicio con el mismo emblema aprobado que usa el icono de la APK.
+        val splash = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(7, 9, 20))
+            isClickable = true
+            isFocusable = true
+        }
+        val splashContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+        }
+        val splashLogo = ImageView(this).apply {
+            setImageResource(R.drawable.ic_lemovi)
+            contentDescription = "Logo oficial de Lemovi"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        splashContent.addView(splashLogo, LinearLayout.LayoutParams(
+            if (mobileLayout) 164 else 210, if (mobileLayout) 164 else 210
+        ))
+        splashContent.addView(TextView(this).apply {
+            text = "LEMOVI"
+            textSize = if (mobileLayout) 30f else 38f
+            setTextColor(Color.rgb(156, 238, 255))
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            letterSpacing = 0.22f
+            gravity = Gravity.CENTER
+            setShadowLayer(18f, 0f, 0f, Color.rgb(0, 126, 255))
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 14 })
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "1.4.4"
+        } catch (_: Exception) { "1.4.4" }
+        splashContent.addView(TextView(this).apply {
+            text = "VERSIÓN $versionName"
+            textSize = 13f
+            setTextColor(Color.rgb(166, 190, 218))
+            letterSpacing = 0.16f
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 10 })
+        splash.addView(splashContent, FrameLayout.LayoutParams(-1, -1))
+        appRoot.addView(splash, FrameLayout.LayoutParams(-1, -1))
+        setContentView(appRoot)
+        splash.postDelayed({
+            splash.animate().alpha(0f).setDuration(420L).withEndAction {
+                appRoot.removeView(splash)
+            }.start()
+        }, 1450L)
+
         // Al abrir Lemovi, dejar visible la primera selección para el control remoto.
         go.requestFocus()
 
