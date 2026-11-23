@@ -46,10 +46,12 @@ class MainActivity : Activity() {
         window.statusBarColor = Color.rgb(10, 8, 18)
         window.navigationBarColor = Color.BLACK
 
+        val mobileLayout = resources.configuration.screenWidthDp < 600
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(10, 8, 18))
-            setPadding(22, 16, 22, 10)
+            setPadding(if (mobileLayout) 12 else 22, if (mobileLayout) 10 else 16,
+                if (mobileLayout) 12 else 22, 8)
         }
 
         val brand = TextView(this).apply {
@@ -61,8 +63,12 @@ class MainActivity : Activity() {
             letterSpacing = 0.18f
             setPadding(4, 0, 0, 10)
         }
-        root.addView(brand, LinearLayout.LayoutParams(-1, 48))
+        root.addView(brand, LinearLayout.LayoutParams(-1, if (mobileLayout) 42 else 48))
 
+        val addressRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -90,13 +96,26 @@ class MainActivity : Activity() {
             browser.reload()
         }
 
-        bar.addView(address, LinearLayout.LayoutParams(0, 54, 1f))
-        bar.addView(go, buttonParams())
-        bar.addView(back, buttonParams())
-        bar.addView(forward, buttonParams())
-        bar.addView(full, buttonParams())
-        bar.addView(adBlockButton, LinearLayout.LayoutParams(86, 54).apply { leftMargin = 7 })
-        root.addView(bar)
+        if (mobileLayout) {
+            addressRow.addView(address, LinearLayout.LayoutParams(0, 50, 1f))
+            addressRow.addView(go, LinearLayout.LayoutParams(58, 50).apply { leftMargin = 6 })
+            root.addView(addressRow, LinearLayout.LayoutParams(-1, 50))
+            bar.addView(back, LinearLayout.LayoutParams(0, 48, 1f).apply { rightMargin = 5 })
+            bar.addView(forward, LinearLayout.LayoutParams(0, 48, 1f).apply { rightMargin = 5 })
+            bar.addView(full, LinearLayout.LayoutParams(0, 48, 1f).apply { rightMargin = 5 })
+            bar.addView(adBlockButton, LinearLayout.LayoutParams(0, 48, 1f))
+            val controls = LinearLayout.LayoutParams(-1, 48).apply { topMargin = 8; bottomMargin = 8 }
+            root.addView(bar, controls)
+        } else {
+            addressRow.addView(address, LinearLayout.LayoutParams(0, 54, 1f))
+            addressRow.addView(go, buttonParams())
+            bar.addView(back, buttonParams())
+            bar.addView(forward, buttonParams())
+            bar.addView(full, buttonParams())
+            bar.addView(adBlockButton, LinearLayout.LayoutParams(86, 54).apply { leftMargin = 7 })
+            root.addView(addressRow)
+            root.addView(bar)
+        }
 
         browser = WebView(this).apply {
             setBackgroundColor(Color.BLACK)
