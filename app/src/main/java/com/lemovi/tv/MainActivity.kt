@@ -468,22 +468,24 @@ class MainActivity : Activity() {
     }
 
     private fun loadThumbnail(imageUrl: String, target: ImageView) {
+        val userAgent = browser.settings.userAgentString
         Thread {
-            var connection: HttpURLConnection? = null
+            var conn: HttpURLConnection? = null
             try {
-                connection = URL(imageUrl).openConnection() as HttpURLConnection
-                connection.connectTimeout = 5000
-                connection.readTimeout = 7000
-                connection.instanceFollowRedirects = true
-                connection.setRequestProperty("User-Agent", browser.settings.userAgentString)
-                CookieManager.getInstance().getCookie(imageUrl)?.let { connection.setRequestProperty("Cookie", it) }
-                connection.connect()
-                val bitmap = connection.inputStream.use { BitmapFactory.decodeStream(it) }
+                val activeConnection = URL(imageUrl).openConnection() as HttpURLConnection
+                conn = activeConnection
+                activeConnection.connectTimeout = 5000
+                activeConnection.readTimeout = 7000
+                activeConnection.instanceFollowRedirects = true
+                activeConnection.setRequestProperty("User-Agent", userAgent)
+                CookieManager.getInstance().getCookie(imageUrl)?.let { activeConnection.setRequestProperty("Cookie", it) }
+                activeConnection.connect()
+                val bitmap = activeConnection.inputStream.use { BitmapFactory.decodeStream(it) }
                 if (bitmap != null) runOnUiThread { target.setImageBitmap(bitmap) }
             } catch (_: Exception) {
                 // Si el sitio bloquea la miniatura, la fila conserva el fondo de vista previa.
             } finally {
-                connection?.disconnect()
+                conn?.disconnect()
             }
         }.start()
     }
