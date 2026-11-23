@@ -344,6 +344,8 @@ class MainActivity : Activity() {
         browserHost.addView(browser, FrameLayout.LayoutParams(-1, -1))
         pageRoot.addView(browserHost, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(pageRoot)
+        // Al abrir Lemovi, dejar visible la primera selección para el control remoto.
+        go.requestFocus()
 
         address.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_GO) { openAddress(); true } else false
