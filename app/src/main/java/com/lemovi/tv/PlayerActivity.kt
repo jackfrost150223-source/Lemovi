@@ -20,6 +20,7 @@ import androidx.media3.ui.PlayerView
 
 class PlayerActivity : Activity() {
     companion object {
+        @Volatile var activeInstance: PlayerActivity? = null
         const val EXTRA_URL = "lemovi.video_url"
         const val EXTRA_USER_AGENT = "lemovi.user_agent"
         const val EXTRA_COOKIE = "lemovi.cookie"
@@ -182,6 +183,37 @@ class PlayerActivity : Activity() {
             }
     }
 
+    fun handleRemoteCommand(command: String) {
+        val exo = player ?: return
+        when (command) {
+            "UP" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_UP)
+            "DOWN" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_DOWN)
+            "LEFT" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_LEFT)
+            "RIGHT" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_RIGHT)
+            "OK" -> sendPlayerKey(KeyEvent.KEYCODE_DPAD_CENTER)
+            "BACK" -> finish()
+            "PLAY_PAUSE" -> if (exo.isPlaying) exo.pause() else exo.play()
+            "REWIND" -> exo.seekTo((exo.currentPosition - 10000L).coerceAtLeast(0L))
+            "FORWARD" -> exo.seekTo((exo.currentPosition + 10000L).coerceAtMost(exo.duration.takeIf { it > 0 } ?: Long.MAX_VALUE))
+            "VOL_UP" -> (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+                .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_RAISE, android.media.AudioManager.FLAG_SHOW_UI)
+            "VOL_DOWN" -> (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+                .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_LOWER, android.media.AudioManager.FLAG_SHOW_UI)
+            "MUTE" -> (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+                .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_MUTE, android.media.AudioManager.FLAG_SHOW_UI)
+        }
+    }
+
+    private fun sendPlayerKey(keyCode: Int) {
+        playerView.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode))
+        playerView.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode))
+    }
+
+    override fun onStart() {
+        super.onStart()
+        activeInstance = this
+    }
+
     private fun playbackErrorMessage(error: PlaybackException): String {
         val detail = when (error.errorCode) {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "No hay conexión con el servidor de video."
@@ -197,6 +229,7 @@ class PlayerActivity : Activity() {
     }
 
     override fun onStop() {
+        if (activeInstance === this) activeInstance = null
         if (::playerView.isInitialized) playerView.player = null
         player?.release()
         player = null
