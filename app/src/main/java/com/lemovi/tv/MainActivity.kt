@@ -212,6 +212,12 @@ class MainActivity : Activity() {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             settings.apply {
                 javaScriptEnabled = true
+                // Algunos sitios rechazan el identificador "wv" de Android WebView.
+                // Conservamos el motor y las capacidades de WebView, pero usamos un UA
+                // con formato de navegador Chrome Android para mejorar compatibilidad.
+                userAgentString = userAgentString
+                    .replace("; wv", "")
+                    .replace(" Version/4.0", "")
                 domStorageEnabled = true
                 databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
