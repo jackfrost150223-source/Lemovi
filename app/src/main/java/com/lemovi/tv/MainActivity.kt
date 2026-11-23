@@ -547,7 +547,7 @@ class MainActivity : Activity() {
             isolatedBrowserLayout = panel
             activeIsolatedProfile = profileName
             web.loadUrl(uri.toString())
-            back.requestFocus()
+            backToApp.requestFocus()
         } catch (e: Exception) {
             hideIsolatedBrowser()
             Toast.makeText(this, "No se pudo abrir el navegador aislado: " + (e.message ?: "error"), Toast.LENGTH_LONG).show()
