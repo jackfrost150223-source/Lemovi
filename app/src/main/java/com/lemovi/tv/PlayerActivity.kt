@@ -25,6 +25,7 @@ class PlayerActivity : Activity() {
         const val EXTRA_COOKIE = "lemovi.cookie"
         const val EXTRA_REFERER = "lemovi.referer"
         const val EXTRA_HEADERS = "lemovi.headers"
+        const val EXTRA_SUBTITLES = "lemovi.subtitles"
     }
 
     private var player: ExoPlayer? = null
@@ -143,8 +144,39 @@ class PlayerActivity : Activity() {
                         ).show()
                     }
                 })
+                val subtitleConfigurations = mutableListOf<MediaItem.SubtitleConfiguration>()
+                val subtitleArray = try {
+                    org.json.JSONArray(intent.getStringExtra(EXTRA_SUBTITLES).orEmpty())
+                } catch (_: Exception) { org.json.JSONArray() }
+                for (i in 0 until subtitleArray.length()) {
+                    val item = subtitleArray.optJSONObject(i) ?: continue
+                    val subtitleUrl = item.optString("url")
+                    if (!subtitleUrl.startsWith("https://") && !subtitleUrl.startsWith("http://")) continue
+                    val lowerSubtitle = subtitleUrl.lowercase()
+                    val mime = item.optString("mimeType").ifBlank {
+                        when {
+                            lowerSubtitle.contains(".vtt") -> MimeTypes.TEXT_VTT
+                            lowerSubtitle.contains(".srt") -> MimeTypes.APPLICATION_SUBRIP
+                            else -> MimeTypes.TEXT_VTT
+                        }
+                    }
+                    val language = item.optString("lang").ifBlank { item.optString("language") }.ifBlank { "und" }
+                    val label = item.optString("label").ifBlank { language }
+                    try {
+                        subtitleConfigurations.add(
+                            MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitleUrl))
+                                .setMimeType(mime)
+                                .setLanguage(language)
+                                .setLabel(label)
+                                .setSelectionFlags(0)
+                                .build()
+                        )
+                    } catch (_: Exception) { }
+                }
+
                 val mediaItem = MediaItem.Builder()
                     .setUri(url)
+                    .setSubtitleConfigurations(subtitleConfigurations)
                     .apply {
                         val lower = url.lowercase()
                         when {
