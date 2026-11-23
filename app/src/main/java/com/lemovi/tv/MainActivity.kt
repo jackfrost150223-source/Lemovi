@@ -408,7 +408,7 @@ class MainActivity : Activity() {
             catalog('movie','');
             </script></body></html>
         """.trimIndent()
-        browser.loadDataWithBaseURL("https://lemovi.home/", html, "text/html", "UTF-8", null)
+        browser.loadDataWithBaseURL("https://v3-cinemeta.strem.io/", html, "text/html", "UTF-8", null)
         browser.postDelayed({
             browser.evaluateJavascript("(function(){var e=document.getElementById('homeTab');if(e)e.focus();})()", null)
             browser.requestFocus()
