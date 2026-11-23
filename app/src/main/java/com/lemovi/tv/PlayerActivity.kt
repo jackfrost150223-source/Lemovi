@@ -70,7 +70,7 @@ class PlayerActivity : Activity() {
     }
 
     override fun onStop() {
-        playerView.player = null
+        if (::playerView.isInitialized) playerView.player = null
         player?.release()
         player = null
         super.onStop()
