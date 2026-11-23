@@ -618,7 +618,7 @@ class MainActivity : Activity() {
             <button id="homeTab" class="navBtn active" aria-label="Inicio" title="Inicio"><span class="navIcon">⌂</span><span class="navLabel">INICIO</span></button>
             <button id="moviesTab" class="navBtn" aria-label="Películas" title="Películas"><span class="navIcon">▣</span><span class="navLabel">PELÍCULAS</span></button>
             <button id="seriesTab" class="navBtn" aria-label="Series" title="Series"><span class="navIcon">▤</span><span class="navLabel">SERIES</span></button>
-            <button id="archiveTab" class="navBtn" aria-label="Cine de Archivo" title="Cine de Archivo"><span class="navIcon">◷</span><span class="navLabel">CINE DE ARCHIVO</span></button>
+            <button id="archiveTab" class="navBtn" aria-label="Cine de Archivo" title="Cine de Archivo"><span class="navIcon">◷</span><span class="navLabel">SERVIDOR</span></button>
             <button id="listTab" class="navBtn" aria-label="Mi lista" title="Mi lista"><span class="navIcon">★</span><span class="navLabel">MI LISTA</span></button>
             <button id="addonsTab" class="navBtn" aria-label="Complementos" title="Complementos"><span class="navIcon">⊞</span><span class="navLabel">COMPLEMENTOS</span></button>
             <button id="browserTab" class="navBtn" aria-label="Abrir navegador individual" title="Abrir navegador individual"><span class="navIcon">◎</span><span class="navLabel">NAVEGADOR</span></button>
@@ -673,7 +673,7 @@ class MainActivity : Activity() {
 
             async function archiveSearch(term){
               backStack=[];currentScreen='archive';setTabs('archive');
-              content.innerHTML='<div class="status">Buscando películas en Internet Archive...</div>';
+              content.innerHTML='<div class="status">Conectando con el servidor de películas Internet Archive...</div>';
               try{
                 const params=new URLSearchParams();
                 const escapedTerm=String(term||'').replace(/\\/g,'\\\\').replace(/\"/g,'\\\"');
@@ -686,7 +686,7 @@ class MainActivity : Activity() {
                 if(!response.ok)throw new Error('HTTP '+response.status);
                 const data=await response.json(),docs=(data.response&&data.response.docs)||[];
                 if(!docs.length){content.innerHTML='<div class="status">No encontramos películas para esa búsqueda. Probá con otro título.</div>';return;}
-                content.innerHTML='<section class="section"><h2>Cine de Archivo</h2><p class="muted">Películas alojadas en Internet Archive. La reproducción se habilita solo si el registro declara una licencia abierta o dominio público.</p><div class="grid">'+docs.map(function(m){
+                content.innerHTML='<section class="section"><h2>Servidor de películas · Internet Archive</h2><p class="muted">Fuente directa de películas de dominio público y licencias abiertas. Elegí un título para ver los archivos disponibles.</p><div class="grid">'+docs.map(function(m){
                   const id=safe(m.identifier||''),title=safe(m.title||m.identifier||'Película'),year=safe(m.year||''),creator=safe(Array.isArray(m.creator)?m.creator.join(', '):m.creator||'');
                   return '<div class="card" tabindex="0" role="button" data-archive-id="'+id+'"><img loading="lazy" src="https://archive.org/services/img/'+id+'" onerror="this.style.visibility=\'hidden\'"><div class="info"><b>'+title+'</b><small>'+year+(creator?' · '+creator:'')+'</small></div></div>';
                 }).join('')+'</div></section>';
@@ -711,8 +711,8 @@ class MainActivity : Activity() {
                 html+='<p><b>Derechos:</b> '+safe(rights||'No declarados')+'</p>';
                 if(license)html+='<p><b>Licencia:</b> <a href="'+safe(license)+'" target="_blank">'+safe(license)+'</a></p>';
                 if(verified&&videos.length){
-                  html+='<p class="muted">El registro declara una licencia abierta o dominio público. Verificá las condiciones de uso del título.</p><div class="episodes">';
-                  videos.slice(0,8).forEach(function(file,index){html+='<button data-archive-play="'+index+'">REPRODUCIR · '+safe(file.name.split('/').pop())+'</button>';});
+                  html+='<p class="muted">Fuente habilitada: licencia abierta o dominio público declarados en la ficha.</p><div class="episodes">';
+                  videos.slice(0,8).forEach(function(file,index){html+='<button data-archive-play="'+index+'">▶ PLAY · '+safe(file.name.split('/').pop())+'</button>';});
                   html+='</div>';
                 }else{
                   html+='<p class="muted">Lemovi no habilita la reproducción directa: no se pudo verificar una licencia abierta o no hay un archivo de video compatible. Podés consultar la ficha original.</p>';
@@ -723,9 +723,11 @@ class MainActivity : Activity() {
                 document.getElementById('archiveOriginal').onclick=function(){LemoviNative.openExternal('https://archive.org/details/'+encodeURIComponent(previousId));};
                 if(verified&&videos.length)content.querySelectorAll('[data-archive-play]').forEach(function(button){button.onclick=function(){
                   const file=videos[Number(button.dataset.archivePlay)];if(!file)return;
+                  button.disabled=true;button.textContent='CONECTANDO...';
                   const encodedName=file.name.split('/').map(encodeURIComponent).join('/');
                   const media='https://archive.org/download/'+encodeURIComponent(previousId)+'/'+encodedName;
                   LemoviNative.playStream(media,title,'https://archive.org','{}','[]');
+                  setTimeout(function(){button.disabled=false;button.textContent='▶ PLAY · '+file.name.split('/').pop();},1200);
                 };});
               }catch(e){content.innerHTML='<div class="status">No se pudo leer la ficha de Internet Archive. <button id="archiveRetry">VOLVER</button></div>';document.getElementById('archiveRetry').onclick=function(){archiveSearch(query.value.trim());};}
             }
