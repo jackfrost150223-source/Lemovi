@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.graphics.Typeface
 import android.net.Uri
+import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.view.KeyEvent
@@ -442,11 +443,31 @@ class MainActivity : Activity() {
     }
 
     private fun openBrowserMode() {
-        // Entrar siempre al navegador con una página inicial visible y controles activos.
-        lemoviCatalogPage = false
-        setCatalogMode(false)
-        address.setText("https://www.google.com/")
-        openAddress()
+        // La opción Navegador delega la navegación externa al navegador Brave.
+        openInBrave("https://www.google.com/")
+    }
+
+    private fun openInBrave(rawUrl: String) {
+        val uri = Uri.parse(rawUrl)
+        if (uri.scheme != "https" && uri.scheme != "http") {
+            Toast.makeText(this, "Solo se permiten enlaces web HTTP o HTTPS", Toast.LENGTH_LONG).show()
+            return
+        }
+        val braveIntent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.brave.browser")
+        try {
+            if (braveIntent.resolveActivity(packageManager) != null) {
+                startActivity(braveIntent)
+                return
+            }
+            val fallbackIntent = Intent(Intent.ACTION_VIEW, uri)
+            if (fallbackIntent.resolveActivity(packageManager) == null) {
+                Toast.makeText(this, "No hay un navegador instalado. Instalá Brave para usar esta opción.", Toast.LENGTH_LONG).show()
+                return
+            }
+            startActivity(Intent.createChooser(fallbackIntent, "Abrir con un navegador"))
+        } catch (_: Exception) {
+            Toast.makeText(this, "No se pudo abrir el navegador. Comprobá que Brave esté instalado.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showHomePage() {
@@ -496,7 +517,7 @@ class MainActivity : Activity() {
             <button id="archiveTab" class="navBtn" aria-label="Cine de Archivo" title="Cine de Archivo"><span class="navIcon">◷</span><span class="navLabel">CINE DE ARCHIVO</span></button>
             <button id="listTab" class="navBtn" aria-label="Mi lista" title="Mi lista"><span class="navIcon">★</span><span class="navLabel">MI LISTA</span></button>
             <button id="addonsTab" class="navBtn" aria-label="Complementos" title="Complementos"><span class="navIcon">⊞</span><span class="navLabel">COMPLEMENTOS</span></button>
-            <button id="browserTab" class="navBtn" aria-label="Navegador" title="Navegador"><span class="navIcon">◎</span><span class="navLabel">NAVEGADOR</span></button>
+            <button id="browserTab" class="navBtn" aria-label="Abrir navegador Brave" title="Abrir navegador Brave"><span class="navIcon">◎</span><span class="navLabel">NAVEGADOR BRAVE</span></button>
             </nav><div class="searchDock" id="searchDock"><input id="query" placeholder="Buscar películas o series..." aria-label="Buscar películas o series" tabindex="-1"><button id="searchBtn" aria-label="Abrir búsqueda" title="Buscar">⌕</button></div></header>
             <main><div id="hero" class="hero"><h1>Tu cine, a tu manera.</h1><div class="muted">Explorá películas y series, descubrí información y encontrá opciones para verlas.</div></div>
             <div id="content"><div class="status">Cargando catálogo...</div></div></main>
@@ -747,7 +768,7 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             if (!trustedPage()) return
             try {
                 val url = validateMediaUrl(raw)
-                runOnUiThread { lemoviCatalogPage = false; setCatalogMode(false); browser.loadUrl(url.toString()) }
+                runOnUiThread { openInBrave(url.toString()) }
             } catch (e: Exception) {
                 runOnUiThread { Toast.makeText(this@MainActivity, e.message ?: "Enlace externo no válido", Toast.LENGTH_LONG).show() }
             }
@@ -883,12 +904,12 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             return
         }
         address.setText(url)
-        lemoviCatalogPage = false
-        setCatalogMode(false)
-        videoPanel.visibility = View.GONE
         val uri = Uri.parse(url)
-        if (isDirectVideo(uri)) openNativePlayer(url) else browser.loadUrl(url)
-        browser.requestFocus()
+        if (isDirectVideo(uri)) {
+            openNativePlayer(url)
+        } else {
+            openInBrave(url)
+        }
     }
 
     private fun isDirectVideo(uri: Uri): Boolean {
