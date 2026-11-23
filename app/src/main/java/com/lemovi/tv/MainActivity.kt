@@ -175,6 +175,21 @@ class MainActivity : Activity() {
             pageRoot.addView(bar, LinearLayout.LayoutParams(-1, 52).apply { topMargin = 8; bottomMargin = 7 })
         }
 
+        val browserActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        browserActions.addView(makeButton("⌂ INICIO", "Abrir la pantalla inicial de Lemovi") { showHomePage() },
+            LinearLayout.LayoutParams(0, if (mobileLayout) 40 else 44, 1f))
+        browserActions.addView(makeButton("↻ RECARGAR", "Volver a cargar la página actual") {
+            if (::browser.isInitialized && !browser.url.isNullOrBlank()) browser.reload() else showHomePage()
+        }, LinearLayout.LayoutParams(0, if (mobileLayout) 40 else 44, 1f).apply { leftMargin = 6 })
+        browserActions.addView(makeButton("★ FAVORITOS", "Abrir páginas guardadas") { showBookmarks() },
+            LinearLayout.LayoutParams(0, if (mobileLayout) 40 else 44, 1f).apply { leftMargin = 6 })
+        browserActions.addView(makeButton("＋ GUARDAR", "Guardar la página actual en favoritos") { saveBookmark() },
+            LinearLayout.LayoutParams(0, if (mobileLayout) 40 else 44, 1f).apply { leftMargin = 6 })
+        pageRoot.addView(browserActions, LinearLayout.LayoutParams(-1, if (mobileLayout) 40 else 44).apply { bottomMargin = 6 })
+
         searchVideosButton = makeButton("▶  BUSCAR VIDEOS", "Detectar videos disponibles en la página abierta") {
             detectVideos()
         }
@@ -337,6 +352,60 @@ class MainActivity : Activity() {
         address.setText("https://")
     }
 
+    private fun showHomePage() {
+        if (!::browser.isInitialized) return
+        videoPanel.visibility = View.GONE
+        address.setText("")
+        val html = """
+            <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>*{box-sizing:border-box}body{margin:0;background:#090711;color:#fff;font-family:Arial,sans-serif;
+            display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center}
+            main{width:92%;max-width:900px;padding:28px}h1{font-size:clamp(34px,7vw,64px);letter-spacing:8px;
+            color:#8feaff;text-shadow:0 0 18px #087cff}p{color:#c7b6d8;font-size:clamp(15px,2.4vw,22px)}
+            .links{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:30px}
+            a{display:block;text-decoration:none;color:white;background:#241638;border:1px solid #4e83ff;
+            border-radius:12px;padding:18px 24px;font-size:18px;min-width:150px}a:focus{background:#4a2580;outline:3px solid #8feaff}</style>
+            </head><body><main><h1>LEMOVI</h1><p>Tu espacio para explorar y reproducir contenido.</p>
+            <div class="links"><a href="https://www.google.com">Buscar en Google</a>
+            <a href="https://www.youtube.com">YouTube</a>
+            <a href="https://miraculous.now/es-419/watch?s=7&amp;e=701">Miraculous</a></div>
+            <p>Escribí una dirección o lo que querés buscar en la barra superior.</p></main></body></html>
+        """.trimIndent()
+        browser.loadDataWithBaseURL("https://lemovi.home/", html, "text/html", "UTF-8", null)
+    }
+
+    private fun saveBookmark() {
+        if (!::browser.isInitialized) return
+        val url = browser.url.orEmpty()
+        if (url.isBlank() || url == "about:blank" || url.startsWith("https://lemovi.home/")) {
+            Toast.makeText(this, "Abrí una página antes de guardarla", Toast.LENGTH_SHORT).show(); return
+        }
+        val prefs = getPreferences(MODE_PRIVATE)
+        val list = JSONArray(prefs.getString("lemovi_bookmarks", "[]"))
+        for (i in 0 until list.length()) if (list.optJSONObject(i)?.optString("url") == url) {
+            Toast.makeText(this, "Esta página ya está en favoritos", Toast.LENGTH_SHORT).show(); return
+        }
+        list.put(JSONObject().put("title", browser.title?.takeIf { it.isNotBlank() } ?: url).put("url", url))
+        prefs.edit().putString("lemovi_bookmarks", list.toString()).apply()
+        Toast.makeText(this, "Página guardada en favoritos", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showBookmarks() {
+        val list = JSONArray(getPreferences(MODE_PRIVATE).getString("lemovi_bookmarks", "[]"))
+        if (list.length() == 0) { Toast.makeText(this, "Todavía no guardaste favoritos", Toast.LENGTH_SHORT).show(); return }
+        val labels = ArrayList<String>(); val urls = ArrayList<String>()
+        for (i in 0 until list.length()) {
+            val item = list.optJSONObject(i) ?: continue; val url = item.optString("url")
+            if (url.isNotBlank()) { urls.add(url); labels.add(item.optString("title", url)) }
+        }
+        if (urls.isEmpty()) return
+        AlertDialog.Builder(this).setTitle("Favoritos").setItems(labels.toTypedArray()) { _, which ->
+            if (which in urls.indices) { address.setText(urls[which]); openAddress() }
+        }.setNegativeButton("Cerrar", null).setNeutralButton("Borrar todos") { _, _ ->
+            getPreferences(MODE_PRIVATE).edit().remove("lemovi_bookmarks").apply()
+            Toast.makeText(this, "Favoritos eliminados", Toast.LENGTH_SHORT).show()
+        }.show()
+    }
     private fun isLikelyAdResource(uri: Uri): Boolean {
         val path = uri.encodedPath?.lowercase().orEmpty()
         val host = uri.host?.lowercase().orEmpty()
@@ -381,7 +450,12 @@ class MainActivity : Activity() {
     private fun openAddress() {
         var url = address.text.toString().trim()
         if (url.isEmpty()) return
-        if (!url.contains("://")) url = "https://$url"
+        val looksLikeAddress = url.contains("://") || (url.contains(".") && !url.contains(" "))
+        if (!looksLikeAddress) {
+            url = "https://www.google.com/search?q=" + Uri.encode(url)
+        } else if (!url.contains("://")) {
+            url = "https://$url"
+        }
         if (!url.startsWith("https://") && !url.startsWith("http://")) {
             Toast.makeText(this, "Dirección no válida", Toast.LENGTH_SHORT).show()
             return
