@@ -204,7 +204,7 @@ class PlayerActivity : Activity() {
             "mp4", "m4v" -> MimeTypes.VIDEO_MP4
             "webm" -> MimeTypes.VIDEO_WEBM
             "mkv" -> "video/x-matroska"
-            "ts", "m2ts" -> MimeTypes.APPLICATION_MPEG2TS
+            "ts", "m2ts" -> "video/mp2t"
             "ogv", "ogg" -> "video/ogg"
             "mov" -> "video/quicktime"
             "mp3" -> MimeTypes.AUDIO_MPEG
