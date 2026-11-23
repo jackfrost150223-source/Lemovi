@@ -2,6 +2,7 @@ package com.lemovi.tv
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
@@ -37,6 +38,8 @@ import java.net.URL
 
 class MainActivity : Activity() {
     private lateinit var browser: WebView
+    private lateinit var browserHost: FrameLayout
+    private var adPopup: WebView? = null
     private lateinit var address: EditText
     private lateinit var bar: LinearLayout
     private lateinit var pageRoot: LinearLayout
@@ -148,6 +151,7 @@ class MainActivity : Activity() {
             if (browser.canGoForward()) browser.goForward() else Toast.makeText(this, "No hay página siguiente", Toast.LENGTH_SHORT).show()
         }
         val full = makeButton("⛶ Pantalla", "Activar o salir de pantalla completa") { toggleImmersive() }
+        val historyButton = makeButton("Historial", "Ver páginas visitadas recientemente") { showHistory() }
         adBlockButton = makeButton(if (adBlockEnabled) "AD: ON" else "AD: OFF", "Activar o desactivar bloqueador de anuncios") {
             adBlockEnabled = !adBlockEnabled
             getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
@@ -159,12 +163,14 @@ class MainActivity : Activity() {
             bar.addView(back, LinearLayout.LayoutParams(0, 42, 1f))
             bar.addView(forward, LinearLayout.LayoutParams(0, 42, 1f).apply { leftMargin = 4 })
             bar.addView(full, LinearLayout.LayoutParams(0, 42, 1f).apply { leftMargin = 4 })
+            bar.addView(historyButton, LinearLayout.LayoutParams(0, 42, 1f).apply { leftMargin = 4 })
             bar.addView(adBlockButton, LinearLayout.LayoutParams(0, 42, 1f).apply { leftMargin = 4 })
             pageRoot.addView(bar, LinearLayout.LayoutParams(-1, 42).apply { topMargin = 8; bottomMargin = 7 })
         } else {
             bar.addView(back, buttonParams())
             bar.addView(forward, buttonParams())
             bar.addView(full, buttonParams())
+            bar.addView(historyButton, buttonParams())
             bar.addView(adBlockButton, LinearLayout.LayoutParams(90, 52).apply { leftMargin = 7 })
             pageRoot.addView(bar, LinearLayout.LayoutParams(-1, 52).apply { topMargin = 8; bottomMargin = 7 })
         }
@@ -230,12 +236,38 @@ class MainActivity : Activity() {
                 builtInZoomControls = true
                 displayZoomControls = false
                 setSupportZoom(true)
-                setSupportMultipleWindows(false)
+                setSupportMultipleWindows(true)
             }
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             CookieManager.getInstance().flush()
             webChromeClient = object : WebChromeClient() {
+                override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
+                    if (resultMsg == null || !::browserHost.isInitialized) return false
+                    closeAdPopup()
+                    val popup = WebView(this@MainActivity).apply {
+                        setBackgroundColor(Color.BLACK)
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.javaScriptCanOpenWindowsAutomatically = true
+                        settings.loadsImagesAutomatically = true
+                        settings.mediaPlaybackRequiresUserGesture = false
+                        settings.userAgentString = browser.settings.userAgentString
+                        CookieManager.getInstance().setAcceptCookie(true)
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean = false
+                        }
+                        webChromeClient = WebChromeClient()
+                    }
+                    adPopup = popup
+                    browserHost.addView(popup, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                    val transport = resultMsg.obj as? WebView.WebViewTransport ?: run { closeAdPopup(); return false }
+                    transport.webView = popup
+                    resultMsg.sendToTarget()
+                    popup.postDelayed({ if (adPopup === popup) closeAdPopup() }, 3000)
+                    return true
+                }
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null) return
                     if (customVideoView != null) {
@@ -288,7 +320,9 @@ class MainActivity : Activity() {
                 }
             }
         }
-        pageRoot.addView(browser, LinearLayout.LayoutParams(-1, 0, 1f))
+        browserHost = FrameLayout(this)
+        browserHost.addView(browser, FrameLayout.LayoutParams(-1, -1))
+        pageRoot.addView(browserHost, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(pageRoot)
 
         address.setOnEditorActionListener { _, actionId, _ ->
@@ -300,6 +334,24 @@ class MainActivity : Activity() {
         address.setText("https://")
     }
 
+    private fun closeAdPopup() {
+        val popup = adPopup ?: return
+        adPopup = null
+        try { popup.stopLoading(); browserHost.removeView(popup); popup.loadUrl("about:blank"); popup.destroy() } catch (_: Exception) { }
+    }
+
+    private fun showHistory() {
+        if (!::browser.isInitialized) return
+        val history = browser.copyBackForwardList()
+        if (history.size == 0) { Toast.makeText(this, "Todavía no hay páginas en el historial", Toast.LENGTH_SHORT).show(); return }
+        val first = (history.currentIndex - 19).coerceAtLeast(0)
+        val indices = (first..history.currentIndex).toList().reversed()
+        val labels = indices.map { i -> val item = history.getItemAtIndex(i); item.title?.takeIf { it.isNotBlank() } ?: item.url }
+        AlertDialog.Builder(this).setTitle("Historial de navegación").setItems(labels.toTypedArray()) { _, which ->
+            val delta = indices[which] - history.currentIndex
+            if (delta != 0) browser.goBackOrForward(delta)
+        }.setNegativeButton("Cerrar", null).show()
+    }
     private fun buttonParams() = LinearLayout.LayoutParams(88, 52).apply { leftMargin = 7 }
 
     private fun makeButton(label: String, description: String, action: () -> Unit) = Button(this).apply {
@@ -559,6 +611,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         if (::browser.isInitialized) {
+            closeAdPopup()
             browser.stopLoading()
             browser.loadUrl("about:blank")
             browser.destroy()
