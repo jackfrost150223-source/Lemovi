@@ -147,7 +147,7 @@ class PlayerActivity : Activity() {
                     override fun onPlayerError(error: PlaybackException) {
                         Toast.makeText(
                             this@PlayerActivity,
-                            "No se pudo reproducir esta fuente. Puede requerir el reproductor original o un formato compatible.",
+                            playbackErrorMessage(error),
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -193,10 +193,27 @@ class PlayerActivity : Activity() {
                         }
                     }
                     .build()
+                exo.setSeekBackIncrementMs(10_000)
+                exo.setSeekForwardIncrementMs(30_000)
                 exo.setMediaItem(mediaItem)
                 exo.prepare()
                 exo.playWhenReady = true
             }
+    }
+
+    private fun playbackErrorMessage(error: PlaybackException): String {
+        val cause = error.cause
+        val detail = when (error.errorCode) {
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "No hay conexión con el servidor de video."
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "El servidor tardó demasiado en responder."
+            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "El servidor rechazó la solicitud HTTP."
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "El contenedor del archivo no es compatible."
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> "El manifiesto HLS/DASH está dañado o no es válido."
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "El dispositivo no admite el códec de audio o video de esta fuente."
+            else -> cause?.message ?: error.message ?: "Error desconocido."
+        }
+        return "No se pudo reproducir: $detail"
     }
 
     override fun onStop() {
