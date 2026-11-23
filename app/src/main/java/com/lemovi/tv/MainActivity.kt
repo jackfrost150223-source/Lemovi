@@ -394,14 +394,22 @@ class MainActivity : Activity() {
             <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
             <style>
             *{box-sizing:border-box}body{margin:0;background:#080b14;color:#f4f7ff;font-family:Arial,sans-serif}
-            header{position:sticky;top:0;z-index:5;background:rgba(8,11,20,.97);border-bottom:1px solid #183b59;padding:14px 4vw}
+            header{position:sticky;top:0;z-index:8;background:rgba(8,11,20,.97);border-bottom:1px solid #183b59;padding:14px 4vw 14px 76px;min-height:64px}
             .brand{font-size:25px;font-weight:900;letter-spacing:5px;color:#9ceeff;text-shadow:0 0 16px #087cff}
-            nav{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+            nav{position:fixed;z-index:20;left:10px;top:82px;bottom:14px;width:52px;display:flex;flex-direction:column;gap:9px;overflow:visible}
+            .navBtn{height:48px;width:48px;min-width:48px;display:flex;align-items:center;justify-content:flex-start;gap:13px;padding:0 12px;white-space:nowrap;overflow:hidden;border-radius:13px;background:#101d31;border:1px solid #315b80;box-shadow:0 5px 18px #0008;transition:width .16s ease,background .16s ease}
+            .navBtn .navIcon{width:22px;min-width:22px;text-align:center;font-size:20px;line-height:1}
+            .navBtn .navLabel{opacity:0;transition:opacity .12s ease;font-size:12px;letter-spacing:.5px}
+            .navBtn:focus,.navBtn:hover{width:184px;background:#17466a;border-color:#62eaff;outline:2px solid #62eaff;outline-offset:1px;z-index:22}
+            .navBtn:focus .navLabel,.navBtn:hover .navLabel{opacity:1}
             button,input{font:inherit;color:#fff;background:#142238;border:1px solid #315b80;border-radius:10px;padding:12px 16px}
             button{cursor:pointer;font-weight:700}button:focus,input:focus,.card:focus{outline:3px solid #62eaff;outline-offset:3px;background:#17466a}
             button.active{background:#17466a;border-color:#62eaff}
-            .search{display:flex;gap:8px;margin-top:12px}.search input{flex:1;min-width:100px}
-            main{padding:18px 4vw 45px}.hero{padding:20px;border-radius:18px;background:linear-gradient(110deg,#102e4b,#17112d 75%);border:1px solid #285a80;margin-bottom:22px}
+            .searchDock{position:absolute;right:4vw;top:10px;display:flex;align-items:center;gap:7px}
+            #searchBtn{width:44px;height:44px;padding:0;font-size:21px;border-radius:13px}
+            #query{width:0;min-width:0;opacity:0;padding:0;border:0;pointer-events:none;transition:width .18s ease,opacity .15s ease,padding .15s ease}
+            .searchDock.expanded #query{width:min(48vw,340px);min-width:110px;opacity:1;padding:11px 13px;border:1px solid #315b80;pointer-events:auto}
+            main{padding:18px 4vw 45px 76px}.hero{padding:20px;border-radius:18px;background:linear-gradient(110deg,#102e4b,#17112d 75%);border:1px solid #285a80;margin-bottom:22px}
             h1{font-size:clamp(24px,4vw,38px);margin:0 0 8px}.muted{color:#a9b8ce}.section{margin:24px 0}
             .section h2{font-size:21px;color:#a6eaff;margin:0 0 13px}
             .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:14px}
@@ -412,16 +420,26 @@ class MainActivity : Activity() {
             .detail{display:grid;grid-template-columns:minmax(120px,220px) 1fr;gap:20px;background:#101a2b;border:1px solid #2b4e70;border-radius:16px;padding:18px}
             .detail img{width:100%;border-radius:10px}.detail h2{margin:0 0 10px;color:#a6eaff}.episodes{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
             .status{padding:22px;color:#c2d3e8}.hidden{display:none!important}
-            @media(max-width:560px){.detail{grid-template-columns:1fr}.detail img{max-width:160px}.grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}}
+            @media(max-width:560px){header{padding-left:68px}.brand{font-size:21px;letter-spacing:3px}nav{left:7px;top:74px;width:46px}.navBtn{width:42px;min-width:42px;height:44px;padding:0 9px}.navBtn:focus,.navBtn:hover{width:166px}main{padding-left:62px}.detail{grid-template-columns:1fr}.detail img{max-width:160px}.grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}.searchDock.expanded #query{width:min(58vw,270px)}}
             </style></head><body>
-            <header><div class="brand">LEMOVI</div><nav>
-            <button id="homeTab" class="active">INICIO</button><button id="moviesTab">PELÍCULAS</button><button id="seriesTab">SERIES</button><button id="archiveTab">CINE DE ARCHIVO</button><button id="listTab">MI LISTA</button><button id="addonsTab">COMPLEMENTOS</button><button id="browserTab">NAVEGADOR</button>
-            </nav><div class="search"><input id="query" placeholder="Buscar películas o series..." aria-label="Buscar películas o series"><button id="searchBtn">BUSCAR</button></div></header>
+            <header><div class="brand">LEMOVI</div><nav aria-label="Navegación principal">
+            <button id="homeTab" class="navBtn active" aria-label="Inicio" title="Inicio"><span class="navIcon">⌂</span><span class="navLabel">INICIO</span></button>
+            <button id="moviesTab" class="navBtn" aria-label="Películas" title="Películas"><span class="navIcon">▣</span><span class="navLabel">PELÍCULAS</span></button>
+            <button id="seriesTab" class="navBtn" aria-label="Series" title="Series"><span class="navIcon">▤</span><span class="navLabel">SERIES</span></button>
+            <button id="archiveTab" class="navBtn" aria-label="Cine de Archivo" title="Cine de Archivo"><span class="navIcon">◷</span><span class="navLabel">CINE DE ARCHIVO</span></button>
+            <button id="listTab" class="navBtn" aria-label="Mi lista" title="Mi lista"><span class="navIcon">★</span><span class="navLabel">MI LISTA</span></button>
+            <button id="addonsTab" class="navBtn" aria-label="Complementos" title="Complementos"><span class="navIcon">⊞</span><span class="navLabel">COMPLEMENTOS</span></button>
+            <button id="browserTab" class="navBtn" aria-label="Navegador" title="Navegador"><span class="navIcon">◎</span><span class="navLabel">NAVEGADOR</span></button>
+            </nav><div class="searchDock" id="searchDock"><input id="query" placeholder="Buscar películas o series..." aria-label="Buscar películas o series" tabindex="-1"><button id="searchBtn" aria-label="Abrir búsqueda" title="Buscar">⌕</button></div></header>
             <main><div id="hero" class="hero"><h1>Tu cine, a tu manera.</h1><div class="muted">Explorá películas y series, descubrí información y encontrá opciones para verlas.</div></div>
             <div id="content"><div class="status">Cargando catálogo...</div></div></main>
             <script>
             const API='https://v3-cinemeta.strem.io';
             const content=document.getElementById('content'), query=document.getElementById('query');
+            const searchDock=document.getElementById('searchDock'), searchBtn=document.getElementById('searchBtn');
+            function closeSearch(){searchDock.classList.remove('expanded');query.tabIndex=-1;query.blur();searchBtn.focus();}
+            searchBtn.addEventListener('click',()=>{if(!searchDock.classList.contains('expanded')){searchDock.classList.add('expanded');query.tabIndex=0;query.focus();}else{const q=query.value.trim();if(q){searchAll(q);closeSearch();}else{searchDock.classList.remove('expanded');query.tabIndex=-1;}}});
+            document.addEventListener('keydown',e=>{if(e.key==='Escape'&&searchDock.classList.contains('expanded')){e.preventDefault();closeSearch();}});
             let currentType='movie';
             let backStack=[];
             let currentScreen='home';
@@ -502,8 +520,7 @@ class MainActivity : Activity() {
 function renderAddons(items){const box=document.getElementById('addonList');if(!box)return;box.innerHTML=items.length?items.map((u,i)=>{const builtin=u.includes('watchhub.strem.io');return '<div class="hero"><b>'+(builtin?'WatchHub · servicios oficiales':'Complemento '+(i+1))+'</b><div class="muted">'+safe(u)+'</div>'+(builtin?'<span class="muted">INTEGRADO</span>':'<button data-remove="'+i+'">QUITAR</button>')+'</div>';}).join(''):'<p class="muted">Todavía no agregaste complementos.</p>';box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{LemoviNative.removeAddon(items[Number(b.dataset.remove)]);renderAddons(JSON.parse(LemoviNative.getAddonList()||'[]'));});}
 function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentScreen,prevType=currentType,prevQuery=query.value;backStack.push(()=>{if(prev==='details')details(type,id);else if(prev==='search')searchAll(prevQuery);else if(prev==='catalog')catalog(prevType,'');else homeCatalog();});}currentScreen='streams';const configured=JSON.parse(LemoviNative.getAddonList()||'[]');if(!configured.length){content.innerHTML='<div class="status">Primero agregá un complemento compatible desde COMPLEMENTOS.<br><button id="goAddons">CONFIGURAR COMPLEMENTOS</button></div>';document.getElementById('goAddons').onclick=addons;return;}content.innerHTML='<div class="status">Consultando fuentes de reproducción...</div>';const all=[];for(const url of configured){try{const data=JSON.parse(LemoviNative.getStreams(url,type,id));if(data.error){all.push({name:'Error de complemento',title:data.error,_error:true});continue;}(data.streams||[]).forEach(st=>all.push({...st,_addon:url}));}catch(e){all.push({name:'Error de complemento',title:String(e.message||e),_error:true});}}if(!all.length){content.innerHTML='<div class="status">Los complementos no devolvieron fuentes para este título.</div>';return;}content.innerHTML='<section class="section"><h2>Fuentes disponibles</h2>'+all.map((st,i)=>{const action=st.url&&/^https?:/i.test(st.url)?'<button data-play="'+i+'">REPRODUCIR</button>':st.externalUrl?'<button data-external="'+i+'">ABRIR SERVICIO</button>':st.ytId?'<button data-youtube="'+i+'">VER EN YOUTUBE</button>':st.infoHash||String(st.url||'').startsWith('magnet:')?'<span class="muted">Fuente torrent: motor P2P todavía no integrado.</span>':'<span class="muted">Formato no compatible con el reproductor actual.</span>';return '<div class="hero"><b>'+safe(st.name||st.title||'Fuente '+(i+1))+'</b><p class="muted">'+safe(st.description||st.behaviorHints?.filename||st._addon||'')+'</p>'+(st._error?'<small>'+safe(st.title)+'</small>':action)+'</div>';}).join('')+'</section>';content.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.play)];if(st&&st.url){const headers=st.behaviorHints&&st.behaviorHints.proxyHeaders&&st.behaviorHints.proxyHeaders.request?JSON.stringify(st.behaviorHints.proxyHeaders.request):'{}';LemoviNative.playStream(st.url,st.name||'Lemovi',st._addon,headers,JSON.stringify(st.subtitles||[]));}});content.querySelectorAll('[data-external]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.external)];if(st&&st.externalUrl)LemoviNative.openExternal(st.externalUrl);});content.querySelectorAll('[data-youtube]').forEach(b=>b.onclick=()=>{const st=all[Number(b.dataset.youtube)];if(st&&st.ytId)LemoviNative.openExternal('https://www.youtube.com/watch?v='+encodeURIComponent(st.ytId));});}
             document.getElementById('homeTab').onclick=()=>homeCatalog();document.getElementById('moviesTab').onclick=()=>catalog('movie','');document.getElementById('seriesTab').onclick=()=>catalog('series','');document.getElementById('archiveTab').onclick=()=>archiveSearch(query.value.trim());document.getElementById('listTab').onclick=()=>myList();document.getElementById('addonsTab').onclick=()=>addons();document.getElementById('browserTab').onclick=()=>LemoviNative.openBrowser();
-            document.getElementById('searchBtn').onclick=()=>{const q=query.value.trim();if(q)searchAll(q);else homeCatalog();};
-            query.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('searchBtn').click();});
+            query.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const q=query.value.trim();if(q){searchAll(q);closeSearch();}}});
             homeCatalog();
             </script></body></html>
         """.trimIndent()
