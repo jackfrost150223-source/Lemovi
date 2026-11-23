@@ -5,6 +5,8 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
@@ -435,16 +437,45 @@ class MainActivity : Activity() {
     }
     private fun buttonParams() = LinearLayout.LayoutParams(88, 52).apply { leftMargin = 7 }
 
+    private fun focusBackground(base: Int, radius: Float = 12f): StateListDrawable {
+        fun shape(fill: Int, stroke: Int, width: Int): GradientDrawable =
+            GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = radius
+                setColor(fill)
+                setStroke(width, stroke)
+            }
+        return StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused),
+                shape(Color.rgb(27, 72, 104), Color.rgb(82, 226, 255), 4))
+            addState(intArrayOf(android.R.attr.state_pressed),
+                shape(Color.rgb(55, 38, 100), Color.rgb(190, 126, 255), 3))
+            addState(intArrayOf(), shape(base, Color.rgb(76, 53, 105), 1))
+        }
+    }
+
+    private fun applyFocusFeedback(view: View, base: Int = Color.rgb(36, 27, 51)) {
+        view.isFocusable = true
+        view.isFocusableInTouchMode = false
+        view.background = focusBackground(base, 12f)
+        view.setOnFocusChangeListener { v, focused ->
+            v.animate().scaleX(if (focused) 1.045f else 1f)
+                .scaleY(if (focused) 1.045f else 1f)
+                .alpha(if (focused) 1f else 0.94f)
+                .setDuration(110).start()
+            v.elevation = if (focused) 12f else 0f
+        }
+    }
+
     private fun makeButton(label: String, description: String, action: () -> Unit) = Button(this).apply {
         text = label
         textSize = if (resources.configuration.screenWidthDp < 600) 10.5f else 12f
         isAllCaps = false
         setTextColor(Color.WHITE)
-        setBackgroundColor(Color.rgb(105, 45, 150))
         contentDescription = description
-        setPadding(2, 0, 2, 0)
+        setPadding(5, 0, 5, 0)
+        applyFocusFeedback(this, Color.rgb(105, 45, 150))
         setOnClickListener { action() }
-        setOnFocusChangeListener { v, focused -> v.alpha = if (focused) 1f else 0.86f }
     }
 
     private fun openAddress() {
@@ -579,9 +610,8 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(5, 6, 5, 6)
-            setBackgroundColor(Color.rgb(36, 27, 51))
-            isFocusable = true
             isClickable = true
+            applyFocusFeedback(this, Color.rgb(36, 27, 51))
         }
         val thumb = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
