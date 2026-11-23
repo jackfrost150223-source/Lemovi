@@ -39,10 +39,29 @@ class MainActivity : Activity() {
     private var customVideoView: View? = null
     private var customVideoCallback: WebChromeClient.CustomViewCallback? = null
 
+    // Bloqueo local de dominios publicitarios y de seguimiento conocidos.
+    // Se aplica solo a subrecursos: nunca bloquea la navegación principal ni el video del sitio.
     private val blockedAdHosts = setOf(
+        // Google y redes publicitarias
         "doubleclick.net", "googlesyndication.com", "googleadservices.com",
-        "adservice.google.com", "adnxs.com"
-    )
+        "adservice.google.com", "admob.com", "pagead2.googlesyndication.com",
+        "adnxs.com", "adsystem.com", "adsafeprotected.com",
+        // Redes de anuncios y pop-ups
+        "adform.net", "adform.com", "adroll.com", "advertising.com",
+        "bidswitch.net", " casalemedia.com", "casalemedia.com",
+        "criteo.com", "criteo.net", "demdex.net", "eyereturn.com",
+        "media.net", "outbrain.com", "outbrainimg.com", "popads.net",
+        "popcash.net", "propellerads.com", "pubmatic.com", " rubiconproject.com",
+        "rubiconproject.com", "sharethrough.com", "smartadserver.com",
+        " taboola.com", "taboola.com", "teads.tv", " lijit.com", "lijit.com",
+        "undertone.com", "yieldmo.com", "zedo.com", "trafficjunky.net",
+        "exoclick.com", " juicyads.com", "juicyads.com",
+        // Seguimiento y medición publicitaria
+        "hotjar.com", "scorecardresearch.com", "quantserve.com",
+        " branch.io", "branch.io", " app-measurement.com", "app-measurement.com",
+        "analytics.yahoo.com", "matomo.cloud", "mixpanel.com",
+        "segment.io", "segment.com", "amplitude.com"
+    ).map { it.trim() }.toSet()
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
