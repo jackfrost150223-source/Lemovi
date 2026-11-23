@@ -23,11 +23,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Build debug APK
-        run: gradle assembleDebug
+      - name: Build TV and Mobile debug APKs
+        run: gradle assembleTvDebug assembleMobileDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Lemovi-AndroidTV-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Lemovi-TV-and-Mobile-APKs
+          path: |
+            app/build/outputs/apk/tv/debug/app-tv-debug.apk
+            app/build/outputs/apk/mobile/debug/app-mobile-debug.apk
           if-no-files-found: error
