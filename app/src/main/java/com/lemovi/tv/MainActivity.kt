@@ -263,10 +263,14 @@ class MainActivity : Activity() {
                 }
 
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                    // Con el bloqueador apagado, no inspeccionar cada recurso:
+                    // las páginas cargan decenas o cientos de scripts, imágenes y fuentes.
+                    if (!adBlockEnabled) return super.shouldInterceptRequest(view, request)
                     val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
+                    if (request.isForMainFrame) return super.shouldInterceptRequest(view, request)
                     val host = uri.host?.lowercase() ?: return super.shouldInterceptRequest(view, request)
                     val isAdHost = blockedAdHosts.any { host == it || host.endsWith(".$it") }
-                    if (adBlockEnabled && !request.isForMainFrame && isAdHost) {
+                    if (isAdHost) {
                         return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                     }
                     return super.shouldInterceptRequest(view, request)
