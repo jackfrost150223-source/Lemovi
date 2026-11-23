@@ -24,6 +24,7 @@ class PlayerActivity : Activity() {
         const val EXTRA_USER_AGENT = "lemovi.user_agent"
         const val EXTRA_COOKIE = "lemovi.cookie"
         const val EXTRA_REFERER = "lemovi.referer"
+        const val EXTRA_HEADERS = "lemovi.headers"
     }
 
     private var player: ExoPlayer? = null
@@ -90,6 +91,14 @@ class PlayerActivity : Activity() {
         val cookie = intent.getStringExtra(EXTRA_COOKIE).orEmpty()
         val referer = intent.getStringExtra(EXTRA_REFERER).orEmpty()
         val requestHeaders = mutableMapOf<String, String>()
+        val addonHeaders = try { org.json.JSONObject(intent.getStringExtra(EXTRA_HEADERS).orEmpty()) } catch (_: Exception) { org.json.JSONObject() }
+        val safeHeaderNames = setOf("user-agent", "referer", "origin", "cookie", "authorization", "accept", "accept-language")
+        addonHeaders.keys().forEach { key ->
+            if (key.lowercase() in safeHeaderNames) {
+                val value = addonHeaders.optString(key)
+                if (value.isNotBlank() && value.length <= 4096) requestHeaders[key] = value
+            }
+        }
         if (userAgent.isNotBlank()) requestHeaders["User-Agent"] = userAgent
         if (cookie.isNotBlank()) requestHeaders["Cookie"] = cookie
         if (referer.isNotBlank()) {
