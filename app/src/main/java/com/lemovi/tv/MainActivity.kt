@@ -125,7 +125,7 @@ class MainActivity : Activity() {
             setPadding(10, 0, 0, 0)
         }
         brandRow.addView(brand, LinearLayout.LayoutParams(-1, -1))
-        pageRoot.addView(brandRow, LinearLayout.LayoutParams(-1, if (mobileLayout) 48 else 56))
+        // Se oculta el encabezado nativo: la interfaz web ya muestra el logotipo Lemovi.
 
         addressRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -406,7 +406,7 @@ class MainActivity : Activity() {
             <html lang="es"><head><meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
             <style>
-            *{box-sizing:border-box}body{margin:0;background:#080b14;color:#f4f7ff;font-family:Arial,sans-serif}
+            *{box-sizing:border-box}html{scroll-behavior:smooth;overscroll-behavior-y:contain}body{margin:0;background:#080b14;color:#f4f7ff;font-family:Arial,sans-serif;-webkit-overflow-scrolling:touch}
             header{position:sticky;top:0;z-index:8;background:rgba(8,11,20,.97);border-bottom:1px solid #183b59;padding:14px 4vw 14px 76px;min-height:64px}
             .brand{font-size:25px;font-weight:900;letter-spacing:5px;color:#9ceeff;text-shadow:0 0 16px #087cff}
             nav{position:fixed;z-index:20;left:10px;top:82px;bottom:14px;width:52px;display:flex;flex-direction:column;gap:9px;overflow:visible}
@@ -423,11 +423,11 @@ class MainActivity : Activity() {
             #query{width:0;min-width:0;opacity:0;padding:0;border:0;pointer-events:none;transition:width .18s ease,opacity .15s ease,padding .15s ease}
             .searchDock.expanded #query{width:min(48vw,340px);min-width:110px;opacity:1;padding:11px 13px;border:1px solid #315b80;pointer-events:auto}
             main{padding:18px 4vw 45px 76px}.hero{padding:20px;border-radius:18px;background:linear-gradient(110deg,#102e4b,#17112d 75%);border:1px solid #285a80;margin-bottom:22px}
-            h1{font-size:clamp(24px,4vw,38px);margin:0 0 8px}.muted{color:#a9b8ce}.section{margin:24px 0}
+            h1{font-size:clamp(24px,4vw,38px);margin:0 0 8px}.muted{color:#a9b8ce}.section{margin:24px 0;content-visibility:auto;contain-intrinsic-size:auto 900px}
             .section h2{font-size:21px;color:#a6eaff;margin:0 0 13px}
             .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:14px}
-            .card{background:#111a2b;border:1px solid #203b59;border-radius:12px;overflow:hidden;min-width:0;cursor:pointer}
-            .card:focus{transform:scale(1.035);border-color:#62eaff}
+            .card{background:#111a2b;border:1px solid #203b59;border-radius:12px;overflow:hidden;min-width:0;cursor:pointer;contain:layout paint;transition:transform .12s ease,border-color .12s ease}
+            .card:focus{transform:scale(1.025);border-color:#62eaff;will-change:transform}
             .card img{width:100%;aspect-ratio:2/3;object-fit:cover;background:#1c2b40;display:block}
             .card .info{padding:9px}.card b{display:block;font-size:14px;line-height:1.25}.card small{display:block;color:#9eb0c8;margin-top:5px}
             .detail{display:grid;grid-template-columns:minmax(120px,220px) 1fr;gap:20px;background:#101a2b;border:1px solid #2b4e70;border-radius:16px;padding:18px}
@@ -463,7 +463,7 @@ class MainActivity : Activity() {
             function toggleSaved(item){const items=savedItems();const index=items.findIndex(x=>x.id===item.id&&x.type===item.type);if(index>=0)items.splice(index,1);else items.push(item);saveItems(items);return index<0;}
             function myList(){backStack=[];currentScreen='list';setTabs('list');const items=savedItems();if(!items.length){content.innerHTML='<div class="status">Tu lista está vacía. Abrí una película o serie y elegí AGREGAR A MI LISTA.</div>';return;}content.innerHTML='<section class="section"><h2>Mi lista</h2><div class="grid">'+items.map(card).join('')+'</div></section>';bindCards();}
             function safe(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-            function card(m){const img=m.poster||'';return '<div class="card" tabindex="0" role="button" data-id="'+safe(m.id)+'" data-type="'+safe(m.type||currentType)+'"><img loading="lazy" src="'+safe(img)+'" onerror="this.style.visibility=\'hidden\'"><div class="info"><b>'+safe(m.name)+'</b><small>'+safe(m.year||'')+(m.imdbRating?' · ★ '+safe(m.imdbRating):'')+'</small></div></div>';}
+            function card(m){const img=m.poster||'';return '<div class="card" tabindex="0" role="button" data-id="'+safe(m.id)+'" data-type="'+safe(m.type||currentType)+'"><img loading="lazy" decoding="async" src="'+safe(img)+'" onerror="this.style.visibility=\'hidden\'"><div class="info"><b>'+safe(m.name)+'</b><small>'+safe(m.year||'')+(m.imdbRating?' · ★ '+safe(m.imdbRating):'')+'</small></div></div>';}
             async function catalog(type,term){backStack=[];currentScreen='catalog';currentType=type;setTabs(type);content.innerHTML='<div class="status">Buscando títulos...</div>';let path='/catalog/'+type+'/top.json';if(term)path='/catalog/'+type+'/top/search='+encodeURIComponent(term)+'.json';try{const res=await fetch(API+path);if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();const items=data.metas||[];if(!items.length){content.innerHTML='<div class="status">No encontramos resultados. Probá con otro título.</div>';return;}content.innerHTML='<section class="section"><h2>'+(term?'Resultados para “'+safe(term)+'”':type==='movie'?'Películas populares':'Series populares')+'</h2><div class="grid">'+items.map(card).join('')+'</div></section>';bindCards();}catch(e){content.innerHTML='<div class="status">No se pudo conectar con el catálogo. Revisá tu conexión e intentá nuevamente.<br><small>'+safe(e.message)+'</small></div>';}}
             function bindCards(){content.querySelectorAll('.card').forEach(el=>{el.addEventListener('click',()=>details(el.dataset.type,el.dataset.id));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();details(el.dataset.type,el.dataset.id);}});});}
             async function homeCatalog(){backStack=[];currentScreen='home';setTabs('home');content.innerHTML='<div class="status">Cargando películas y series...</div>';try{const results=await Promise.all([fetch(API+'/catalog/movie/top.json').then(r=>r.json()),fetch(API+'/catalog/series/top.json').then(r=>r.json())]);const movies=results[0].metas||[],series=results[1].metas||[];content.innerHTML=(movies.length?'<section class="section"><h2>Películas populares</h2><div class="grid">'+movies.slice(0,20).map(m=>{m.type='movie';return card(m);}).join('')+'</div></section>':'')+(series.length?'<section class="section"><h2>Series populares</h2><div class="grid">'+series.slice(0,20).map(m=>{m.type='series';return card(m);}).join('')+'</div></section>':'');if(!movies.length&&!series.length)content.innerHTML='<div class="status">El catálogo no devolvió títulos.</div>';bindCards();}catch(e){content.innerHTML='<div class="status">No se pudo cargar el catálogo. Revisá tu conexión e intentá nuevamente.</div>';}}
