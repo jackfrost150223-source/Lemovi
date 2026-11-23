@@ -458,9 +458,11 @@ class MainActivity : Activity() {
         return "lemovi_" + digest.take(12).joinToString("") { "%02x".format(it) }
     }
 
-    private fun openInBrave(rawUrl: String) {
-        // Mantiene los enlaces dentro del perfil aislado de Lemovi, no en Brave externo.
-        openIsolatedBrowser("lemovi_browser", rawUrl, "Navegador Lemovi")
+    private fun openInLemoviBrowser(rawUrl: String) {
+        // Cada plataforma obtiene su propio almacén de cookies y almacenamiento web.
+        val host = Uri.parse(rawUrl).host?.lowercase().orEmpty()
+        val profileId = if (host.isBlank()) "lemovi_browser" else "site_" + host
+        openIsolatedBrowser(profileId, rawUrl, "Navegador Lemovi")
     }
 
     private fun openIsolatedBrowser(profileId: String, rawUrl: String, title: String) {
@@ -856,7 +858,7 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             if (!trustedPage()) return
             try {
                 val url = validateMediaUrl(raw)
-                runOnUiThread { openInBrave(url.toString()) }
+                runOnUiThread { openInLemoviBrowser(url.toString()) }
             } catch (e: Exception) {
                 runOnUiThread { Toast.makeText(this@MainActivity, e.message ?: "Enlace externo no válido", Toast.LENGTH_LONG).show() }
             }
