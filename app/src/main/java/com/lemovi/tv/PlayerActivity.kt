@@ -104,7 +104,7 @@ class PlayerActivity : Activity() {
             val value = addonHeaders.optString(key)
             if (headerNamePattern.matches(key) && key.lowercase() !in forbiddenHeaders &&
                 value.isNotBlank() && value.length <= 8192 &&
-                !value.contains('\\r') && !value.contains('\\n')) {
+                !value.contains('\r') && !value.contains('\n')) {
                 requestHeaders[key] = value
             }
         }
