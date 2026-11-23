@@ -6,10 +6,13 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 
@@ -41,8 +44,9 @@ class PlayerActivity : Activity() {
             useController = true
             controllerAutoShow = true
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-            setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+            setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
             setBackgroundColor(android.graphics.Color.BLACK)
+            setKeepContentOnPlayerReset(true)
         }
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(android.graphics.Color.BLACK)
@@ -52,21 +56,38 @@ class PlayerActivity : Activity() {
             ))
         })
 
-        player = ExoPlayer.Builder(this).build().also { exo ->
-            playerView.player = exo
-            exo.addListener(object : Player.Listener {
-                override fun onPlayerError(error: PlaybackException) {
-                    Toast.makeText(
-                        this@PlayerActivity,
-                        "Este formato o enlace no es compatible con el reproductor Lemovi.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            })
-            exo.setMediaItem(MediaItem.fromUri(url))
-            exo.prepare()
-            exo.playWhenReady = true
-        }
+        // Inicio rápido sin vaciar el búfer ante pequeñas variaciones de red.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                15_000, // búfer mínimo
+                50_000, // máximo
+                1_000,  // empezar cuando haya 1 segundo
+                2_500   // reanudar tras interrupción con 2,5 segundos
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        val trackSelector = DefaultTrackSelector(this)
+        player = ExoPlayer.Builder(this)
+            .setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
+            .build()
+            .also { exo ->
+                playerView.player = exo
+                exo.setHandleAudioBecomingNoisy(true)
+                exo.addListener(object : Player.Listener {
+                    override fun onPlayerError(error: PlaybackException) {
+                        Toast.makeText(
+                            this@PlayerActivity,
+                            "No se pudo reproducir esta fuente. Puede requerir el reproductor original o un formato compatible.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                })
+                exo.setMediaItem(MediaItem.fromUri(url))
+                exo.prepare()
+                exo.playWhenReady = true
+            }
     }
 
     override fun onStop() {
