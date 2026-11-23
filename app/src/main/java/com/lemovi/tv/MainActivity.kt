@@ -78,7 +78,7 @@ class MainActivity : Activity() {
             setHintTextColor(Color.LTGRAY)
             setTextColor(Color.WHITE)
             textSize = 16f
-            singleLine = true
+            isSingleLine = true
             imeOptions = EditorInfo.IME_ACTION_GO
             setSelectAllOnFocus(true)
             setPadding(16, 8, 16, 8)
