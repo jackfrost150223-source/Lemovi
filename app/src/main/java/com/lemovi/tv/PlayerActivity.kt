@@ -62,7 +62,6 @@ class PlayerActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT
             ))
         })
-        // Los controles del reproductor también muestran claramente el foco del mando.
         playerView.post {
             val controls = intArrayOf(
                 androidx.media3.ui.R.id.exo_play,
@@ -93,7 +92,6 @@ class PlayerActivity : Activity() {
         val referer = intent.getStringExtra(EXTRA_REFERER).orEmpty()
         val requestHeaders = mutableMapOf<String, String>()
         val addonHeaders = try { org.json.JSONObject(intent.getStringExtra(EXTRA_HEADERS).orEmpty()) } catch (_: Exception) { org.json.JSONObject() }
-        val safeHeaderNames = setOf("user-agent", "referer", "origin", "cookie", "authorization", "accept", "accept-language")
         addonHeaders.keys().forEach { key ->
             val normalized = when (key.lowercase()) {
                 "user-agent" -> "User-Agent"
@@ -123,14 +121,8 @@ class PlayerActivity : Activity() {
             .setReadTimeoutMs(30000)
             .setDefaultRequestProperties(requestHeaders)
 
-        // Inicio rápido sin vaciar el búfer ante pequeñas variaciones de red.
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                15_000, // búfer mínimo
-                50_000, // máximo
-                1_000,  // empezar cuando haya 1 segundo
-                2_500   // reanudar tras interrupción con 2,5 segundos
-            )
+            .setBufferDurationsMs(15_000, 50_000, 1_000, 2_500)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
@@ -145,11 +137,7 @@ class PlayerActivity : Activity() {
                 exo.setHandleAudioBecomingNoisy(true)
                 exo.addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {
-                        Toast.makeText(
-                            this@PlayerActivity,
-                            playbackErrorMessage(error),
-                            Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(this@PlayerActivity, playbackErrorMessage(error), Toast.LENGTH_LONG).show()
                     }
                 })
                 val subtitleConfigurations = mutableListOf<MediaItem.SubtitleConfiguration>()
@@ -173,15 +161,11 @@ class PlayerActivity : Activity() {
                     try {
                         subtitleConfigurations.add(
                             MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitleUrl))
-                                .setMimeType(mime)
-                                .setLanguage(language)
-                                .setLabel(label)
-                                .setSelectionFlags(0)
-                                .build()
+                                .setMimeType(mime).setLanguage(language).setLabel(label)
+                                .setSelectionFlags(0).build()
                         )
                     } catch (_: Exception) { }
                 }
-
                 val mediaItem = MediaItem.Builder()
                     .setUri(url)
                     .setSubtitleConfigurations(subtitleConfigurations)
@@ -191,10 +175,7 @@ class PlayerActivity : Activity() {
                             lower.contains(".m3u8") || lower.contains("mpegurl") -> setMimeType(MimeTypes.APPLICATION_M3U8)
                             lower.contains(".mpd") || lower.contains("dash+xml") -> setMimeType(MimeTypes.APPLICATION_MPD)
                         }
-                    }
-                    .build()
-                exo.setSeekBackIncrementMs(10_000)
-                exo.setSeekForwardIncrementMs(30_000)
+                    }.build()
                 exo.setMediaItem(mediaItem)
                 exo.prepare()
                 exo.playWhenReady = true
@@ -202,7 +183,6 @@ class PlayerActivity : Activity() {
     }
 
     private fun playbackErrorMessage(error: PlaybackException): String {
-        val cause = error.cause
         val detail = when (error.errorCode) {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "No hay conexión con el servidor de video."
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "El servidor tardó demasiado en responder."
@@ -211,7 +191,7 @@ class PlayerActivity : Activity() {
             PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> "El manifiesto HLS/DASH está dañado o no es válido."
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
             PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "El dispositivo no admite el códec de audio o video de esta fuente."
-            else -> cause?.message ?: error.message ?: "Error desconocido."
+            else -> error.cause?.message ?: error.message ?: "Error desconocido."
         }
         return "No se pudo reproducir: $detail"
     }
