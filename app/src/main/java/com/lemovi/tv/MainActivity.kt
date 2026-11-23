@@ -48,6 +48,8 @@ class MainActivity : Activity() {
     private lateinit var addressRow: LinearLayout
     private lateinit var browserActions: LinearLayout
     private var catalogMode = true
+    // Estado explícito de la página interna; WebView.url no es fiable con loadDataWithBaseURL.
+    private var lemoviCatalogPage = false
     private lateinit var pageRoot: LinearLayout
     private lateinit var videoPanel: LinearLayout
     private lateinit var videoResults: LinearLayout
@@ -332,10 +334,20 @@ class MainActivity : Activity() {
                     return super.shouldInterceptRequest(view, request)
                 }
 
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    if (!url.isNullOrBlank() && !url.startsWith("https://v3-cinemeta.strem.io/")) {
+                        lemoviCatalogPage = false
+                        setCatalogMode(false)
+                    }
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    if (!url.isNullOrBlank()) {
+                    if (!lemoviCatalogPage && !url.isNullOrBlank()) {
                         address.setText(url)
-                        setCatalogMode(url.startsWith("https://v3-cinemeta.strem.io/"))
+                        setCatalogMode(false)
+                    } else if (lemoviCatalogPage) {
+                        setCatalogMode(true)
+                        address.setText("")
                     }
                     videoPanel.visibility = View.GONE
                 }
@@ -376,15 +388,16 @@ class MainActivity : Activity() {
     }
 
     private fun openBrowserMode() {
+        // Entrar siempre al navegador con una página inicial visible y controles activos.
+        lemoviCatalogPage = false
         setCatalogMode(false)
-        if (browser.url.orEmpty().startsWith("https://v3-cinemeta.strem.io/")) {
-            address.setText("https://www.google.com/")
-            openAddress()
-        }
+        address.setText("https://www.google.com/")
+        openAddress()
     }
 
     private fun showHomePage() {
         if (!::browser.isInitialized) return
+        lemoviCatalogPage = true
         setCatalogMode(true)
         videoPanel.visibility = View.GONE
         address.setText("")
@@ -534,7 +547,7 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
 
     inner class AddonBridge {
         private fun trustedPage(): Boolean =
-            ::browser.isInitialized && browser.url.orEmpty().startsWith("https://v3-cinemeta.strem.io/")
+            ::browser.isInitialized && lemoviCatalogPage && catalogMode
 
         private fun validateHttps(raw: String): URL {
             val url = URL(raw.trim())
@@ -680,7 +693,7 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             if (!trustedPage()) return
             try {
                 val url = validateMediaUrl(raw)
-                runOnUiThread { setCatalogMode(false); browser.loadUrl(url.toString()) }
+                runOnUiThread { lemoviCatalogPage = false; setCatalogMode(false); browser.loadUrl(url.toString()) }
             } catch (e: Exception) {
                 runOnUiThread { Toast.makeText(this@MainActivity, e.message ?: "Enlace externo no válido", Toast.LENGTH_LONG).show() }
             }
@@ -816,6 +829,8 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             return
         }
         address.setText(url)
+        lemoviCatalogPage = false
+        setCatalogMode(false)
         videoPanel.visibility = View.GONE
         val uri = Uri.parse(url)
         if (isDirectVideo(uri)) openNativePlayer(url) else browser.loadUrl(url)
