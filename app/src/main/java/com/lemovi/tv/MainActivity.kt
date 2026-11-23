@@ -3,6 +3,7 @@ package com.lemovi.tv
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
+import android.net.Uri
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -195,7 +196,11 @@ class MainActivity : Activity() {
                 }
             }
             webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val uri = request?.url ?: return false
+                    if (isDirectVideo(uri)) { openNativePlayer(uri.toString()); return true }
+                    return false
+                }
 
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                     val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
@@ -253,8 +258,18 @@ class MainActivity : Activity() {
             return
         }
         address.setText(url)
-        browser.loadUrl(url)
+        val uri = Uri.parse(url)
+        if (isDirectVideo(uri)) openNativePlayer(url) else browser.loadUrl(url)
         browser.requestFocus()
+    }
+
+    private fun isDirectVideo(uri: Uri): Boolean {
+        val path = uri.path?.lowercase() ?: return false
+        return listOf(".mp4", ".m3u8", ".mpd", ".webm", ".m4v", ".3gp").any { path.endsWith(it) }
+    }
+
+    private fun openNativePlayer(url: String) {
+        startActivity(android.content.Intent(this, PlayerActivity::class.java).putExtra(PlayerActivity.EXTRA_URL, url))
     }
 
     private fun hideCustomVideo() {
