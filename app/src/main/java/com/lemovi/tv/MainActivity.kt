@@ -50,6 +50,8 @@ class MainActivity : Activity() {
     private var isolatedBrowser: WebView? = null
     private var isolatedBrowserLayout: LinearLayout? = null
     private var activeIsolatedProfile: String? = null
+    private var remoteServer: RemoteControlServer? = null
+    private var remotePairingCode: String = ""
     private lateinit var address: EditText
     private lateinit var bar: LinearLayout
     private lateinit var addressRow: LinearLayout
@@ -105,7 +107,7 @@ class MainActivity : Activity() {
         getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
 
         val mobileLayout = resources.configuration.screenWidthDp < 600
-        pageRoot = LinearLayout(this).apply {
+        if (!packageName.endsWith(".mobile")) {\n            remotePairingCode = (100000..999999).random().toString()\n            remoteServer = RemoteControlServer(8765, remotePairingCode) { command ->\n                runOnUiThread { dispatchRemoteCommand(command) }\n            }.also { it.start() }\n        }\n\n        pageRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(10, 8, 18))
             setPadding(if (mobileLayout) 12 else 22, if (mobileLayout) 14 else 18,
@@ -1203,6 +1205,47 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
     private fun formatDuration(seconds: Double): String {
         val total = seconds.toInt().coerceAtLeast(0)
         return "%d:%02d".format(total / 60, total % 60)
+    }
+
+    private fun openRemoteControl() {
+        if (packageName.endsWith(".mobile")) {
+            startActivity(Intent(this, RemoteControlActivity::class.java))
+            return
+        }
+        val ip = RemoteControlServer.localIpv4Address()
+        AlertDialog.Builder(this)
+            .setTitle("LEMOVI · CONTROL REMOTO")
+            .setMessage("Conectá el celular a la misma red Wi-Fi e ingresá estos datos en Lemovi Remote.\n\nIP: " + ip +
+                "\nPuerto: 8765\nCódigo: " + remotePairingCode)
+            .setPositiveButton("LISTO", null)
+            .show()
+    }
+
+    private fun dispatchRemoteCommand(command: String) {
+        when (command) {
+            "VOL_UP" -> (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+                .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_RAISE, android.media.AudioManager.FLAG_SHOW_UI)
+            "VOL_DOWN" -> (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+                .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_LOWER, android.media.AudioManager.FLAG_SHOW_UI)
+            "MUTE" -> (getSystemService(AUDIO_SERVICE) as android.media.AudioManager)
+                .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_MUTE, android.media.AudioManager.FLAG_SHOW_UI)
+            else -> {
+                val code = when (command) {
+                    "UP" -> KeyEvent.KEYCODE_DPAD_UP
+                    "DOWN" -> KeyEvent.KEYCODE_DPAD_DOWN
+                    "LEFT" -> KeyEvent.KEYCODE_DPAD_LEFT
+                    "RIGHT" -> KeyEvent.KEYCODE_DPAD_RIGHT
+                    "OK" -> KeyEvent.KEYCODE_DPAD_CENTER
+                    "BACK" -> KeyEvent.KEYCODE_BACK
+                    "PLAY_PAUSE" -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+                    "REWIND" -> KeyEvent.KEYCODE_MEDIA_REWIND
+                    "FORWARD" -> KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
+                    else -> return
+                }
+                dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+                dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+            }
+        }
     }
 
     private fun hideCustomVideo() {
