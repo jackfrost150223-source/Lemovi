@@ -6,33 +6,39 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
-import java.io.ByteArrayInputStream
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.graphics.Color
 import android.graphics.Typeface
 import android.view.inputmethod.EditorInfo
+import java.io.ByteArrayInputStream
 
 class MainActivity : Activity() {
     private lateinit var browser: WebView
     private lateinit var address: EditText
     private lateinit var bar: LinearLayout
-    private val history = mutableListOf<String>()
-    private var historyIndex = -1
+    private lateinit var pageRoot: LinearLayout
     private var immersive = false
     private var adBlockEnabled = true
     private lateinit var adBlockButton: Button
+    private var customVideoView: View? = null
+    private var customVideoCallback: WebChromeClient.CustomViewCallback? = null
 
-    // Lista inicial de dominios publicitarios conocidos. Se puede ampliar en futuras versiones.
     private val blockedAdHosts = setOf(
         "doubleclick.net", "googlesyndication.com", "googleadservices.com",
         "adservice.google.com", "adnxs.com"
@@ -42,91 +48,143 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("ad_block_enabled", true)
         window.statusBarColor = Color.rgb(10, 8, 18)
         window.navigationBarColor = Color.BLACK
+        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("ad_block_enabled", true)
 
         val mobileLayout = resources.configuration.screenWidthDp < 600
-        val root = LinearLayout(this).apply {
+        pageRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(10, 8, 18))
-            setPadding(if (mobileLayout) 12 else 22, if (mobileLayout) 10 else 16,
+            setPadding(if (mobileLayout) 12 else 22, if (mobileLayout) 14 else 18,
                 if (mobileLayout) 12 else 22, 8)
         }
 
+        val brandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.ic_lemovi)
+            contentDescription = "Logo Cattleya de Lemovi"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        brandRow.addView(logo, LinearLayout.LayoutParams(if (mobileLayout) 42 else 50, if (mobileLayout) 42 else 50))
         val brand = TextView(this).apply {
             text = "LEMOVI"
             textSize = 25f
-            setTextColor(Color.rgb(205, 145, 255))
+            setTextColor(Color.rgb(218, 166, 255))
             typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
             gravity = Gravity.CENTER_VERTICAL
             letterSpacing = 0.18f
-            setPadding(4, 0, 0, 10)
+            setPadding(10, 0, 0, 0)
         }
-        root.addView(brand, LinearLayout.LayoutParams(-1, if (mobileLayout) 42 else 48))
+        brandRow.addView(brand, LinearLayout.LayoutParams(-1, -1))
+        pageRoot.addView(brandRow, LinearLayout.LayoutParams(-1, if (mobileLayout) 48 else 56))
 
         val addressRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
+        address = EditText(this).apply {
+            hint = "Pegá el enlace de la película o página"
+            setHintTextColor(Color.LTGRAY)
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            isSingleLine = true
+            imeOptions = EditorInfo.IME_ACTION_GO
+            setSelectAllOnFocus(true)
+            setPadding(15, 8, 15, 8)
+            setBackgroundColor(Color.rgb(38, 29, 52))
+            contentDescription = "Buscador de direcciones web"
+        }
+        val go = makeButton("IR", "Abrir dirección") { openAddress() }
+        addressRow.addView(address, LinearLayout.LayoutParams(0, if (mobileLayout) 48 else 52, 1f))
+        addressRow.addView(go, LinearLayout.LayoutParams(if (mobileLayout) 56 else 76, if (mobileLayout) 48 else 52).apply { leftMargin = 7 })
+        pageRoot.addView(addressRow, LinearLayout.LayoutParams(-1, if (mobileLayout) 48 else 52).apply { topMargin = 10 })
+
         bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        address = EditText(this).apply {
-            hint = "Pegá la dirección de la película o página"
-            setHintTextColor(Color.LTGRAY)
-            setTextColor(Color.WHITE)
-            textSize = 16f
-            isSingleLine = true
-            imeOptions = EditorInfo.IME_ACTION_GO
-            setSelectAllOnFocus(true)
-            setPadding(16, 8, 16, 8)
-            setBackgroundColor(Color.rgb(38, 29, 52))
-        }
-        val go = makeButton("IR") { openAddress() }
-        val back = makeButton("◀") { if (browser.canGoBack()) browser.goBack() }
-        val forward = makeButton("▶") { if (browser.canGoForward()) browser.goForward() }
-        val full = makeButton("⛶") { toggleImmersive() }
-        adBlockButton = makeButton(if (adBlockEnabled) "AD: ON" else "AD: OFF") {
+        val back = makeButton("‹ Atrás", "Volver a la página anterior") { if (browser.canGoBack()) browser.goBack() else Toast.makeText(this, "No hay página anterior", Toast.LENGTH_SHORT).show() }
+        val forward = makeButton("Adelante ›", "Avanzar a la página siguiente") { if (browser.canGoForward()) browser.goForward() else Toast.makeText(this, "No hay página siguiente", Toast.LENGTH_SHORT).show() }
+        val full = makeButton("⛶ Pantalla", "Activar o salir de pantalla completa") { toggleImmersive() }
+        adBlockButton = makeButton(if (adBlockEnabled) "AD: ON" else "AD: OFF", "Activar o desactivar bloqueador de anuncios") {
             adBlockEnabled = !adBlockEnabled
             getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
             adBlockButton.text = if (adBlockEnabled) "AD: ON" else "AD: OFF"
             Toast.makeText(this, if (adBlockEnabled) "Bloqueador activado" else "Bloqueador desactivado", Toast.LENGTH_SHORT).show()
             browser.reload()
         }
-
         if (mobileLayout) {
-            addressRow.addView(address, LinearLayout.LayoutParams(0, 50, 1f))
-            addressRow.addView(go, LinearLayout.LayoutParams(58, 50).apply { leftMargin = 6 })
-            root.addView(addressRow, LinearLayout.LayoutParams(-1, 50))
-            bar.addView(back, LinearLayout.LayoutParams(0, 48, 1f).apply { rightMargin = 5 })
-            bar.addView(forward, LinearLayout.LayoutParams(0, 48, 1f).apply { rightMargin = 5 })
-            bar.addView(full, LinearLayout.LayoutParams(0, 48, 1f).apply { rightMargin = 5 })
-            bar.addView(adBlockButton, LinearLayout.LayoutParams(0, 48, 1f))
-            val controls = LinearLayout.LayoutParams(-1, 48).apply { topMargin = 8; bottomMargin = 8 }
-            root.addView(bar, controls)
+            val params = LinearLayout.LayoutParams(0, 44, 1f)
+            bar.addView(back, params)
+            bar.addView(forward, LinearLayout.LayoutParams(0, 44, 1f).apply { leftMargin = 4 })
+            bar.addView(full, LinearLayout.LayoutParams(0, 44, 1f).apply { leftMargin = 4 })
+            bar.addView(adBlockButton, LinearLayout.LayoutParams(0, 44, 1f).apply { leftMargin = 4 })
+            pageRoot.addView(bar, LinearLayout.LayoutParams(-1, 44).apply { topMargin = 8; bottomMargin = 9 })
         } else {
-            addressRow.addView(address, LinearLayout.LayoutParams(0, 54, 1f))
-            addressRow.addView(go, buttonParams())
             bar.addView(back, buttonParams())
             bar.addView(forward, buttonParams())
             bar.addView(full, buttonParams())
-            bar.addView(adBlockButton, LinearLayout.LayoutParams(86, 54).apply { leftMargin = 7 })
-            root.addView(addressRow)
-            root.addView(bar)
+            bar.addView(adBlockButton, LinearLayout.LayoutParams(90, 52).apply { leftMargin = 7 })
+            pageRoot.addView(bar, LinearLayout.LayoutParams(-1, 52).apply { topMargin = 8; bottomMargin = 10 })
         }
 
         browser = WebView(this).apply {
             setBackgroundColor(Color.BLACK)
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.mediaPlaybackRequiresUserGesture = false
-            settings.javaScriptCanOpenWindowsAutomatically = true
-            settings.loadsImagesAutomatically = true
-            settings.useWideViewPort = true
-            settings.loadWithOverviewMode = true
-            webChromeClient = WebChromeClient()
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                mediaPlaybackRequiresUserGesture = false
+                javaScriptCanOpenWindowsAutomatically = true
+                loadsImagesAutomatically = true
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                cacheMode = WebSettings.LOAD_DEFAULT
+                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                builtInZoomControls = true
+                displayZoomControls = false
+                setSupportZoom(true)
+                setSupportMultipleWindows(false)
+            }
+            CookieManager.getInstance().apply {
+                setAcceptCookie(true)
+                setAcceptThirdPartyCookies(this@apply, true)
+            }
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    if (view == null) return
+                    if (customVideoView != null) {
+                        callback?.onCustomViewHidden()
+                        return
+                    }
+                    customVideoView = view
+                    customVideoCallback = callback
+                    pageRoot.visibility = View.GONE
+                    (window.decorView as FrameLayout).addView(
+                        view,
+                        FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    )
+                    window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+                }
+
+                override fun onHideCustomView() {
+                    val view = customVideoView ?: return
+                    (window.decorView as FrameLayout).removeView(view)
+                    customVideoView = null
+                    customVideoCallback?.onCustomViewHidden()
+                    customVideoCallback = null
+                    pageRoot.visibility = View.VISIBLE
+                    window.decorView.systemUiVisibility = if (immersive) {
+                        View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    } else 0
+                }
+            }
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
 
@@ -135,11 +193,7 @@ class MainActivity : Activity() {
                     val host = uri.host?.lowercase() ?: return super.shouldInterceptRequest(view, request)
                     val isAdHost = blockedAdHosts.any { host == it || host.endsWith(".$it") }
                     if (adBlockEnabled && !request.isForMainFrame && isAdHost) {
-                        return WebResourceResponse(
-                            "text/plain",
-                            "UTF-8",
-                            ByteArrayInputStream(ByteArray(0))
-                        )
+                        return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                     }
                     return super.shouldInterceptRequest(view, request)
                 }
@@ -147,10 +201,16 @@ class MainActivity : Activity() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     if (!url.isNullOrBlank()) address.setText(url)
                 }
+
+                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                    if (request?.isForMainFrame == true) {
+                        Toast.makeText(this@MainActivity, "No se pudo cargar la página. Revisá el enlace o la conexión.", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
-        root.addView(browser, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(root)
+        pageRoot.addView(browser, LinearLayout.LayoutParams(-1, 0, 1f))
+        setContentView(pageRoot)
 
         address.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_GO) { openAddress(); true } else false
@@ -159,21 +219,20 @@ class MainActivity : Activity() {
             if (hasFocus) address.setSelection(address.text.length)
         }
         address.setText("https://")
-        address.requestFocus()
     }
 
-    private fun buttonParams() = LinearLayout.LayoutParams(64, 54).apply { leftMargin = 7 }
+    private fun buttonParams() = LinearLayout.LayoutParams(88, 52).apply { leftMargin = 7 }
 
-    private fun makeButton(label: String, action: () -> Unit) = Button(this).apply {
+    private fun makeButton(label: String, description: String, action: () -> Unit) = Button(this).apply {
         text = label
-        textSize = 14f
+        textSize = if (resources.configuration.screenWidthDp < 600) 10.5f else 12f
         isAllCaps = false
         setTextColor(Color.WHITE)
         setBackgroundColor(Color.rgb(105, 45, 150))
+        contentDescription = description
+        setPadding(2, 0, 2, 0)
         setOnClickListener { action() }
-        setOnFocusChangeListener { v, focused ->
-            v.alpha = if (focused) 1f else 0.82f
-        }
+        setOnFocusChangeListener { v, focused -> v.alpha = if (focused) 1f else 0.86f }
     }
 
     private fun openAddress() {
@@ -186,24 +245,23 @@ class MainActivity : Activity() {
         }
         address.setText(url)
         browser.loadUrl(url)
-        if (history.lastOrNull() != url) history.add(url)
-        historyIndex = history.lastIndex
         browser.requestFocus()
     }
 
     private fun toggleImmersive() {
         immersive = !immersive
-        bar.visibility = if (immersive) View.GONE else View.VISIBLE
+        pageRoot.visibility = if (immersive) View.GONE else View.VISIBLE
         window.decorView.systemUiVisibility = if (immersive) {
-            (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+            View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         } else 0
     }
 
     override fun onBackPressed() {
-        if (immersive) {
+        if (customVideoView != null) {
+            (browser.webChromeClient as? WebChromeClient)?.onHideCustomView()
+        } else if (immersive) {
             toggleImmersive()
-        } else if (browser.canGoBack()) {
+        } else if (::browser.isInitialized && browser.canGoBack()) {
             browser.goBack()
         } else {
             super.onBackPressed()
@@ -211,14 +269,16 @@ class MainActivity : Activity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
-            return super.onKeyDown(keyCode, event)
-        }
+        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) return super.onKeyDown(keyCode, event)
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onDestroy() {
-        if (::browser.isInitialized) browser.destroy()
+        if (::browser.isInitialized) {
+            browser.stopLoading()
+            browser.loadUrl("about:blank")
+            browser.destroy()
+        }
         super.onDestroy()
     }
 }
