@@ -44,7 +44,7 @@ class MainActivity : Activity() {
     private lateinit var videoResults: LinearLayout
     private lateinit var searchVideosButton: Button
     private var immersive = false
-    private var adBlockEnabled = true
+    private var adBlockEnabled = false
     private lateinit var adBlockButton: Button
     private var customVideoView: View? = null
     private var customVideoCallback: WebChromeClient.CustomViewCallback? = null
@@ -82,7 +82,9 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.statusBarColor = Color.rgb(10, 8, 18)
         window.navigationBarColor = Color.BLACK
-        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("ad_block_enabled", true)
+        // Permitir anuncios y recursos de terceros necesarios para reproductores web.
+        adBlockEnabled = false
+        getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", false).apply()
 
         val mobileLayout = resources.configuration.screenWidthDp < 600
         pageRoot = LinearLayout(this).apply {
@@ -150,7 +152,7 @@ class MainActivity : Activity() {
             adBlockEnabled = !adBlockEnabled
             getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
             adBlockButton.text = if (adBlockEnabled) "AD: ON" else "AD: OFF"
-            Toast.makeText(this, if (adBlockEnabled) "Bloqueador activado" else "Bloqueador desactivado", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (adBlockEnabled) "Bloqueador activado" else "Anuncios y recursos permitidos", Toast.LENGTH_SHORT).show()
             browser.reload()
         }
         if (mobileLayout) {
@@ -226,6 +228,7 @@ class MainActivity : Activity() {
             }
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+            CookieManager.getInstance().flush()
             webChromeClient = object : WebChromeClient() {
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null) return
@@ -537,6 +540,11 @@ class MainActivity : Activity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) return super.onKeyDown(keyCode, event)
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onPause() {
+        if (::browser.isInitialized) CookieManager.getInstance().flush()
+        super.onPause()
     }
 
     override fun onDestroy() {
