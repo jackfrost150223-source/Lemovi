@@ -47,7 +47,7 @@ class MainActivity : Activity() {
     private lateinit var videoResults: LinearLayout
     private lateinit var searchVideosButton: Button
     private var immersive = false
-    private var adBlockEnabled = false
+    private var adBlockEnabled = true
     private lateinit var adBlockButton: Button
     private var customVideoView: View? = null
     private var customVideoCallback: WebChromeClient.CustomViewCallback? = null
@@ -85,9 +85,9 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.statusBarColor = Color.rgb(10, 8, 18)
         window.navigationBarColor = Color.BLACK
-        // Permitir anuncios y recursos de terceros necesarios para reproductores web.
-        adBlockEnabled = false
-        getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", false).apply()
+        // Bloqueo de publicidad activado por defecto.
+        adBlockEnabled = getPreferences(MODE_PRIVATE).getBoolean("ad_block_enabled", true)
+        getPreferences(MODE_PRIVATE).edit().putBoolean("ad_block_enabled", adBlockEnabled).apply()
 
         val mobileLayout = resources.configuration.screenWidthDp < 600
         pageRoot = LinearLayout(this).apply {
@@ -227,7 +227,7 @@ class MainActivity : Activity() {
                 domStorageEnabled = true
                 databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
-                javaScriptCanOpenWindowsAutomatically = true
+                javaScriptCanOpenWindowsAutomatically = false
                 loadsImagesAutomatically = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
@@ -236,14 +236,16 @@ class MainActivity : Activity() {
                 builtInZoomControls = true
                 displayZoomControls = false
                 setSupportZoom(true)
-                setSupportMultipleWindows(true)
+                setSupportMultipleWindows(false)
             }
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             CookieManager.getInstance().flush()
             webChromeClient = object : WebChromeClient() {
                 override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: android.os.Message?): Boolean {
-                    if (resultMsg == null || !::browserHost.isInitialized) return false
+                    // No crear ventanas emergentes: bloquea popunders y anuncios target=_blank.
+                    return false
+                    /*if (resultMsg == null || !::browserHost.isInitialized) return false
                     closeAdPopup()
                     val popup = WebView(this@MainActivity).apply {
                         setBackgroundColor(Color.BLACK)
@@ -266,7 +268,7 @@ class MainActivity : Activity() {
                     transport.webView = popup
                     resultMsg.sendToTarget()
                     popup.postDelayed({ if (adPopup === popup) closeAdPopup() }, 3000)
-                    return true
+                    return true*/
                 }
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     if (view == null) return
@@ -301,7 +303,8 @@ class MainActivity : Activity() {
                     val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
                     if (request.isForMainFrame) return super.shouldInterceptRequest(view, request)
                     val host = uri.host?.lowercase() ?: return super.shouldInterceptRequest(view, request)
-                    val isAdHost = blockedAdHosts.any { host == it || host.endsWith(".$it") }
+                    val isAdHost = blockedAdHosts.any { host == it || host.endsWith(".$it") } ||
+                        isLikelyAdResource(uri)
                     if (isAdHost) {
                         return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                     }
@@ -332,6 +335,15 @@ class MainActivity : Activity() {
             if (hasFocus) address.setSelection(address.text.length)
         }
         address.setText("https://")
+    }
+
+    private fun isLikelyAdResource(uri: Uri): Boolean {
+        val path = uri.encodedPath?.lowercase().orEmpty()
+        val host = uri.host?.lowercase().orEmpty()
+        if (host.isBlank()) return false
+        val markers = listOf("/ads/", "/adserver/", "/popunder/", "/popup/", "/prebid/", "/vast/")
+        return markers.any { path.contains(it) } ||
+            host.startsWith("ads.") || host.startsWith("adserver.") || host.startsWith("tracking.")
     }
 
     private fun closeAdPopup() {
@@ -389,8 +401,13 @@ class MainActivity : Activity() {
     }
 
     private fun openNativePlayer(url: String) {
+        val cookie = CookieManager.getInstance().getCookie(url).orEmpty()
+        val referer = browser.url.orEmpty()
         startActivity(android.content.Intent(this, PlayerActivity::class.java)
-            .putExtra(PlayerActivity.EXTRA_URL, url))
+            .putExtra(PlayerActivity.EXTRA_URL, url)
+            .putExtra(PlayerActivity.EXTRA_USER_AGENT, browser.settings.userAgentString)
+            .putExtra(PlayerActivity.EXTRA_COOKIE, cookie)
+            .putExtra(PlayerActivity.EXTRA_REFERER, referer))
     }
 
     // La detección lee solo elementos y recursos expuestos por la página actual.
