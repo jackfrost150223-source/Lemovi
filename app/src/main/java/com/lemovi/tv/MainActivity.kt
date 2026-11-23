@@ -915,8 +915,9 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
     private fun isDirectVideo(uri: Uri): Boolean {
         val path = uri.path?.lowercase() ?: ""
         val query = uri.getQueryParameter("mime")?.lowercase().orEmpty()
-        return listOf(".mp4", ".m3u8", ".mpd", ".webm", ".m4v", ".3gp").any { path.endsWith(it) } ||
-            query.startsWith("video/") || query.contains("mpegurl") || query.contains("dash+xml")
+        return listOf(".mp4", ".mkv", ".m3u8", ".mpd", ".webm", ".m4v", ".3gp", ".avi", ".mov", ".ts", ".ogv").any { path.endsWith(it) } ||
+            query.startsWith("video/") || query.contains("mpegurl") || query.contains("dash+xml") ||
+            uri.getQueryParameter("type")?.lowercase()?.startsWith("video/") == true
     }
 
     private fun openNativePlayer(url: String, refererOverride: String? = null, headersJson: String? = null, subtitlesJson: String? = null) {
