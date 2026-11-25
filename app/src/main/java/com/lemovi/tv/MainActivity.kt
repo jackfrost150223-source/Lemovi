@@ -297,7 +297,8 @@ class MainActivity : Activity() {
                         settings.loadsImagesAutomatically = true
                         settings.mediaPlaybackRequiresUserGesture = false
                         settings.userAgentString = browser.settings.userAgentString
-                        settings.setSupportMultipleWindows(true)                        CookieManager.getInstance().setAcceptCookie(true)
+                        settings.setSupportMultipleWindows(true)
+                        CookieManager.getInstance().setAcceptCookie(true)
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean {
@@ -1196,7 +1197,8 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
             text = "$durationText  •  ${if (kind == "link") "Enlace directo" else "Fuente de página"}"
             textSize = 11f
             setTextColor(Color.rgb(195, 170, 215))
-        })        row.addView(textColumn, LinearLayout.LayoutParams(0, -2, 1f))
+        })
+        row.addView(textColumn, LinearLayout.LayoutParams(0, -2, 1f))
         row.setOnClickListener {
             videoPanel.visibility = View.GONE
             when {
