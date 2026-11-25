@@ -297,8 +297,8 @@ class MainActivity : Activity() {
                         settings.loadsImagesAutomatically = true
                         settings.mediaPlaybackRequiresUserGesture = false
                         settings.userAgentString = browser.settings.userAgentString
-                        settings.setSupportMultipleWindows(true)
-                        CookieManager.getInstance().setAcceptCookie(true)                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                        settings.setSupportMultipleWindows(true)                        CookieManager.getInstance().setAcceptCookie(true)
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean {
                                 val uri = request?.url ?: return false
@@ -597,8 +597,7 @@ class MainActivity : Activity() {
             button{cursor:pointer;font-weight:700}.primaryPlay{background:linear-gradient(110deg,#087fc2,#6240b8);border:2px solid #73eaff;color:#fff;font-size:16px;font-weight:900;padding:14px 24px;min-width:190px;box-shadow:0 0 18px #087cff88}button:focus,input:focus,.card:focus{outline:3px solid #62eaff;outline-offset:3px;background:#17466a}
             button.active{background:#17466a;border-color:#62eaff}
             .searchDock{position:absolute;right:4vw;top:10px;display:flex;align-items:center;gap:7px}            #searchBtn{width:44px;height:44px;padding:0;font-size:21px;border-radius:13px}
-            #query{width:0;min-width:0;opacity:0;padding:0;border:0;pointer-events:none;transition:width .18s ease,opacity .15s ease,padding .15s ease}            .searchDock.expanded #query{width:min(48vw,340px);min-width:110px;opacity:1;padding:11px 13px;border:1px solid #315b80;pointer-events:auto}
-            main{padding:18px 4vw 45px 76px}.hero{padding:20px;border-radius:18px;background:linear-gradient(110deg,#102e4b,#17112d 75%);border:1px solid #285a80;margin-bottom:22px}
+            #query{width:0;min-width:0;opacity:0;padding:0;border:0;pointer-events:none;transition:width .18s ease,opacity .15s ease,padding .15s ease}            .searchDock.expanded #query{width:min(48vw,340px);min-width:110px;opacity:1;padding:11px 13px;border:1px solid #315b80;pointer-events:auto}            main{padding:18px 4vw 45px 76px}.hero{padding:20px;border-radius:18px;background:linear-gradient(110deg,#102e4b,#17112d 75%);border:1px solid #285a80;margin-bottom:22px}
             h1{font-size:clamp(24px,4vw,38px);margin:0 0 8px}.muted{color:#a9b8ce}.section{margin:24px 0}
             .section h2{font-size:21px;color:#a6eaff;margin:0 0 13px}
             .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:14px}
@@ -897,8 +896,7 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
         @JavascriptInterface fun clearIndividualBrowser(profileId: String) {            if (!trustedPage() || profileId.isBlank()) return
             runOnUiThread { clearIsolatedBrowserProfile(profileId) }
         }
-        @JavascriptInterface fun openExternal(raw: String) {
-            if (!trustedPage()) return
+        @JavascriptInterface fun openExternal(raw: String) {            if (!trustedPage()) return
             try {
                 val url = validateMediaUrl(raw)
                 runOnUiThread { openInLemoviBrowser(url.toString()) }
@@ -1196,9 +1194,9 @@ function findStreams(type,id){if(currentScreen!=='streams'){const prev=currentSc
         val durationText = if (duration > 0) "Duración: ${formatDuration(duration)}" else "Duración no informada"
         textColumn.addView(TextView(this).apply {
             text = "$durationText  •  ${if (kind == "link") "Enlace directo" else "Fuente de página"}"
-            textSize = 11f            setTextColor(Color.rgb(195, 170, 215))
-        })
-        row.addView(textColumn, LinearLayout.LayoutParams(0, -2, 1f))
+            textSize = 11f
+            setTextColor(Color.rgb(195, 170, 215))
+        })        row.addView(textColumn, LinearLayout.LayoutParams(0, -2, 1f))
         row.setOnClickListener {
             videoPanel.visibility = View.GONE
             when {
